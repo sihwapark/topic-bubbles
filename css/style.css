@@ -1,0 +1,50 @@
+html, body {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    font-family: Helvetica, Calibri, Roboto, Open Sans, sans-serif
+    -webkit-backface-visibility: hidden;
+}
+* {
+    box-sizing: inherit;
+}
+h1 {
+    text-align: center;
+}
+
+.container {
+    width: 100%;
+}
+
+text {
+  font-size: 12px;
+  text-anchor: middle;
+
+}
+
+svg {
+    margin:auto;
+    display:block;
+}
+.circle-overlay {
+    font-size: 16px;
+    border-radius: 50%;
+    position: absolute;
+    overflow: hidden;
+    /*it's buggy with the foreignObject background right now*/
+    /*background-color: rgba(255,255,255,0.5);*/
+}
+.circle-overlay__inner {
+    text-align: center;
+    width: 100%;
+    height: 100%;
+}
+.hidden {
+    display: none;
+}
+.node-icon--faded {
+    opacity: 0.5;
+}
+.legend-size circle {
+    fill: rgb(31, 119, 180);
+}

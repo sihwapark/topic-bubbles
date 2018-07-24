@@ -1,0 +1,15 @@
+{
+    "title": "Model Browser",
+    "meta_info": "<p>Topic model browser generated for jovyan</p>",
+    "VIS": {
+        "condition": {
+            "type": "time",
+            "spec": {
+                "field": "date",
+                "unit": "year",
+                "n": 1
+            }
+        }
+    }
+}
+
