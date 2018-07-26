@@ -17,24 +17,23 @@ h1 {
 }
 
 text {
-  font-size: 12px;
+  font-size: 13px;
   text-anchor: middle;
-
 }
 
 svg {
     margin:auto;
     display:block;
 }
-.circle-overlay {
+.wordcloud-overlay {
     font-size: 16px;
-    border-radius: 50%;
+    border-radius: 5%;
     position: absolute;
     overflow: hidden;
-    /*it's buggy with the foreignObject background right now*/
-    /*background-color: rgba(255,255,255,0.5);*/
+    
+    background-color: rgba(255,255,255,0.7);
 }
-.circle-overlay__inner {
+.wordcloud-overlay__inner {
     text-align: center;
     width: 100%;
     height: 100%;
@@ -48,3 +47,17 @@ svg {
 .legend-size circle {
     fill: rgb(31, 119, 180);
 }
+
+/*text.topic_word {
+    text-anchor: middle;
+    fill: rgba(0,0,0,0.6);
+    pointer-events: none;
+    font: sans-serif;
+}
+
+text.topic_name {
+    text-anchor: middle;
+    fill: black;
+    pointer-events: none;
+    font-style: italic;
+}*/
