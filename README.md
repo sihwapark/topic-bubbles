@@ -1,4 +1,4 @@
-# Topic Model Visualization for the WE1S project
+# Bubble Chart Visualization of Topic Model for the WE1S project
 
 To see a visualization result, put below files inside `data` folder:
 
