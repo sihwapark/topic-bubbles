@@ -7,6 +7,12 @@ var files = {
         topic_scaled: "topic_scaled.csv"
 };
 
+var data = {
+};
+
+var gui_elements ={ 
+        scaled : false
+};
 
 function load_data(e, t) {
     var i, n;
@@ -34,46 +40,20 @@ function load_data(e, t) {
     })
 };
 
+var simulation;
+var centerX, centerY;
+var width, height;
 
-function set_tw(e) {
-    var tw_json;
-    
-    if (typeof e !== "string") {
-        return
-    }
-    tw_json = JSON.parse(e);
+function draw() {
+    if(data.tw == undefined) return;
 
-    var alpha = tw_json.alpha;
-
-    var data = tw_json.tw.map(function(e, n) {
-        
-        var v = 0;
-        var w = e.words.map(function(i, n) {
-            v += e.weights[n];
-            return {
-                word: i,
-                weight: e.weights[n]
-            }
-        });
-
-        var t = {
-            idx: n,
-            name: "Topic " + (n + 1),
-            weight: v,
-            alpha: tw_json.alpha[n],
-            words: w
-        }
-        return t
-    });
-   
     // based on the bubble chart example, https://naustud.io/tech-stack/
-    var svg = d3.select("svg"),
-        width = document.body.clientWidth,
-        height = +svg.attr("height");
+    var svg = d3.select("svg");
+    width = svg.node().clientWidth;
+    height = +svg.node().clientHeight;
 
-
-    let centerX = width * 0.5;
-    let centerY = height * 0.5;
+    centerX = width * 0.5;
+    centerY = height * 0.5;
     let strength = 0.05;
     //let scaleColor = d3.scaleSequential(d3.interpolateOrRd);
     let scaleColor = d3.scaleSequential(d3.interpolateReds); 
@@ -84,23 +64,24 @@ function set_tw(e) {
     
 
     let forceCollide = d3.forceCollide(d => d.r + 1);
-    let simulation = d3.forceSimulation()
+    simulation = d3.forceSimulation()
             .force('charge', d3.forceManyBody())
             .force('collide', forceCollide)
             .force('x', d3.forceX(centerX).strength(strength))
             .force('y', d3.forceY(centerY).strength(strength))
 
 
-    let root = d3.hierarchy({ children: data })
+    let root = d3.hierarchy({ children: data.tw })
             .sum(function(d) { return d.alpha; });
 
-    var max = d3.max(data, d => +d.alpha);
-    var min = d3.min(data, d => +d.alpha);
+    var max = d3.max(data.tw, d => +d.alpha);
+    var min = d3.min(data.tw, d => +d.alpha);
     console.log(min, max);
 
-    let scaleRadius = d3.scaleSqrt().domain([min, max]).range([20, 100]);
-    let rescaleValue = d3.scaleSqrt().domain([min, max]).range([0, 0.7]);
-    var sizeScale = d3.scaleSqrt().domain([0, 1]).range([20,100]);
+    var isAbsoluteValueRange = false;
+    let scaleRadius = d3.scaleSqrt().domain(isAbsoluteValueRange? [0, 1] : [min, max]).range([20, 80]);
+    let rescaleValue = d3.scaleSqrt().domain(isAbsoluteValueRange? [0, 1] : [min, max]).range([0, 0.7]);
+    //var sizeScale = d3.scaleSqrt().domain([0, 1]).range([20,100]);
     pack.radius(d => scaleRadius(d.value))
 
 
@@ -127,6 +108,7 @@ function set_tw(e) {
         .attr('class', 'node')
         .call(d3.drag()
                 .on('start', (d) => {
+                    if(gui_elements.scaled) return;
                     if (!d3.event.active) simulation.alphaTarget(0.2).restart();
                     d.fx = d.x;
                     d.fy = d.y;
@@ -144,8 +126,11 @@ function set_tw(e) {
     let focusedNode, focusedTarget;
 
     simulation.nodes(nodes).on('tick', function() {
-        node.attr('transform', d => `translate(${d.x},${d.y})`)
-            .select('rect')
+        if(gui_elements.scaled == false) 
+            node.attr('transform', d => `translate(${d.x},${d.y})`)
+
+        
+            node.select('rect')
             .attr("rx", d => d.r * d.borderRatio)
             .attr("ry", d => d.r * d.borderRatio)
             .attr('width', d => d.r * 2)
@@ -252,9 +237,9 @@ function set_tw(e) {
                             words.forEach(w => {
                                 layer.append('text')
                                     .style('font-size', w.size + "px")
-                                    .style("fill", color(w.size % 20))
+                                    //.style("fill", color(w.size % 20))
                                     .attr("transform", 
-                                      "translate(" + [w.x, w.y] + ")rotate(" + w.rotate + ")")   
+                                      "translate(" + [w.x, 20 + w.y] + ")rotate(" + w.rotate + ")")   
                                     .text(w.text);
                             })
 
@@ -288,14 +273,6 @@ function set_tw(e) {
 
                 return d.name;
             });
-    
-
-    
-    // wordCloudLayer.append('p')
-    //         .classed('circle-overlay__body', true)
-    //         .html(d => d.desc);
-       
-    
     
     node.on('click', (selectedNode) => {
         d3.event.stopPropagation();
@@ -353,10 +330,7 @@ function set_tw(e) {
                     let $currentGroup = d3.select(currentTarget);
                     $currentGroup.select('.wordcloud-overlay')
                         .classed('hidden', false);
-                    $currentGroup.select('.topic_name').classed('hidden', true);
-                    
-                    //console.log($currentGroup);
-                    
+                    $currentGroup.select('.topic_name').classed('hidden', true);                    
             })
             .on('interrupt', () => {
                     //console.log('move interrupt', selectedNode);
@@ -386,7 +360,9 @@ function set_tw(e) {
                     };
                 })
                 .on('end', () => {
+
                     d3.select(focusedTarget).select('.topic_name').classed('hidden', false);
+                    //d3.select(focusedNode).moveToBack();
                     focusedNode = null;
                     focusedTarget = null;
                     simulation.alphaTarget(0);
@@ -396,20 +372,160 @@ function set_tw(e) {
                 });
 
             d3.selectAll('.wordcloud-overlay').classed('hidden', true);
-        }
 
+        }
+    });
+}
+
+function set_tw(e) {
+    var tw_json;
+    
+    if (typeof e !== "string") {
+        return
+    }
+    tw_json = JSON.parse(e);
+
+    var alpha = tw_json.alpha;
+
+    data.tw = tw_json.tw.map(function(e, n) {
+        
+        var v = 0;
+        var w = e.words.map(function(i, n) {
+            v += e.weights[n];
+            return {
+                word: i,
+                weight: e.weights[n]
+            }
+        });
+
+        var t = {
+            idx: n,
+            name: "Topic " + (n + 1),
+            weight: v,
+            alpha: tw_json.alpha[n],
+            words: w
+        }
+        return t
+    }); 
+
+    draw();
+};
+
+function set_topic_scaled(e) {
+    var i;
+    if (typeof e !== "string") {
+        return
+    }
+
+    i = e.replace(/^\n*/, "").replace(/\n*$/, "\n");
+    data.topic_scaled = d3.csvParseRows(i, function(e) {
+        return e.map(parseFloat)
     });
 };
 
-
 function load() {
-    load_data(data_folder[0] + files.tw, function(e, i) {
-        
-        if (typeof i === "string") {
-            set_tw(i);
+    var gui = new dat.GUI({ autoPlace: false });
+    var customContainer = $('.gui').append($(gui.domElement));
+
+    gui.add(gui_elements, 'scaled').onChange(() => {
+        if(gui_elements.scaled) {
+
+            simulation.stop();
+
+            var nodes = d3.select('svg').selectAll('.node')
+            data.topic_scaled.forEach((scaled, i) => {
+
+                var node = nodes.filter(l => l.idx == i);
+                    node.transition().duration(1000)
+                        .attr('transform', d => {
+                            return 'translate(' + [centerX + width * scaled[0], centerY - height * scaled[1]] + ')'
+                        })
+                        .on('end', d => {
+                            d.x = centerX + width * scaled[0];
+                            d.y = centerY - height * scaled[1];
+                        })
+                        .on('interrupt', d => {
+                            d.x = centerX + width * scaled[0];
+                            d.y = centerY - height * scaled[1];     
+                        });;
+            });
+
+
+            var aspect = width / height;
+            var n = Math.floor(width / (2.1 * Math.sqrt(aspect * data.tw.length)));
+            var i = n * 1.8;
+            var o = 1.1 * n;
+
             
+
+            // g.w = Math.max(g.w, VIS.model_view.plot.w);
+            // g.h = Math.floor(g.w / VIS.model_view.plot.aspect);
+            // n = Math.floor(g.w / (2.1 * Math.sqrt(VIS.model_view.plot.aspect * h)));
+            // i = n * 1.8;
+            // o = 1.1 * n;
+
+            // if (e.type === "scaled") {
+            //     v.forEach(function(e, t) {
+            //         v[t].x = e.scaled[0];
+            //         v[t].y = e.scaled[1]
+            //     })
+            // }
+
+            // a = d3.extent(v, function(e) {
+            //     return e.x
+            // });
+            // d = d3.extent(v, function(e) {
+            //     return e.y
+            // });
+
+            // s = d3.scale.linear().domain(a).range([o, g.w - o]);
+            // c = d3.scale.linear().domain(d).range([g.h - o, o]);
+            
+            // w = function(e) {
+            //     var t = "translate(" + s(e.x);
+            //     t += "," + c(e.y) + ")";
+            //     return t
+            // };
+
+            // d3.behavior.zoom().x(s).y(c).scaleExtent([1, 10]).on("zoom", function() {
+
+            d3.select('svg').call(d3.zoom().scaleExtent([1, 10])
+                                .on("zoom", function() {
+
+
+                                nodes.attr("transform", d => {
+                                    // s = d3.scaleLinear().range([0, width]);
+                                    // c = d3.scaleLinear().range([g.h - o, o]);
+                                    var e = d3.event.transform;
+                                    var scaled = data.topic_scaled[d.idx]
+                                    return 'translate(' + [(centerX + e.x) + width * (scaled[0]), (centerY + e.y) - height * (scaled[1])] + ')';
+                                });
+                                // nodes.attr("transform", w)
+                                console.log(d3.event.transform.x, d3.event.transform.y);
+                            }));
+
         } else {
-            view.error("Unable to load topic words from " + files.tw)
+            simulation.alphaTarget(0.2).restart();
         }
     });
+
+    load_data(data_folder[1] + files.topic_scaled, function(e, i) {
+        if (typeof i === "string") {
+            set_topic_scaled(i)
+        } else {
+            set_topic_scaled("");
+            console.log("Unable to load a file " + files.topic_scaled)
+        }
+    });
+
+    load_data(data_folder[0] + files.tw, function(e, i) {
+    
+        if (typeof i === "string") {
+            set_tw(i);
+        } else {
+            console.log("Unable to load a file " + files.tw)
+        }
+    });
+
+    //window.addEventListener("resize", draw);
 };

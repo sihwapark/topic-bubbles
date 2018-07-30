@@ -4,28 +4,30 @@
 <head>
   <meta charset="utf-8">
   <title>Topic Model Visualization</title>
-  <script type="text/javascript" src="lib/d3.v5.min.js"></script>
-  <script src="https://d3js.org/d3-color.v1.min.js"></script>
-  <script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
-  <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+  <script src="lib/d3.v5.min.js"></script>
+  <script src="lib/d3-color/d3-color.v1.min.js"></script>
+  <script src="lib/d3-color/d3-interpolate.v1.min.js"></script>
+  <script src="lib/d3-color/d3-scale-chromatic.v1.min.js"></script>
   <script src="lib/d3.layout.cloud.js"></script>
   <script src="js/script.js"></script>
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="css/bootstrap.min.css" media="screen">
+  <script src="lib/dat.gui.min.js"></script>
 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="css/style.css" type="text/css"> 
 </head>
 
 <body>
+<div class='header'>
+  <img class='logo' src='img/we1s_logo.png'><span><h1 id='title'>Topic Model Visualization</h1></span>
+</div>
+<div class='gui'>
+</div>
 <div class="container">
   <svg width="100%" height="700" font-family="sans-serif"></svg>
 </div>
 
 <script src="lib/jquery-1.11.0.min.js"></script>
-<script src="lib/bootstrap.min.js"></script>
 <script src="lib/jszip.min.js"></script>
-<script src="js/utils.min.js"></script>
 
 <script type="text/javascript">
   load();
