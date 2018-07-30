@@ -456,52 +456,18 @@ function load() {
             var i = n * 1.8;
             var o = 1.1 * n;
 
+            var xScale = d3.scaleLinear().domain([0, width]).range([o, width - o]);
+            var yScale = d3.scaleLinear().domain([height, 0]).range([height - o, o]);
             
-
-            // g.w = Math.max(g.w, VIS.model_view.plot.w);
-            // g.h = Math.floor(g.w / VIS.model_view.plot.aspect);
-            // n = Math.floor(g.w / (2.1 * Math.sqrt(VIS.model_view.plot.aspect * h)));
-            // i = n * 1.8;
-            // o = 1.1 * n;
-
-            // if (e.type === "scaled") {
-            //     v.forEach(function(e, t) {
-            //         v[t].x = e.scaled[0];
-            //         v[t].y = e.scaled[1]
-            //     })
-            // }
-
-            // a = d3.extent(v, function(e) {
-            //     return e.x
-            // });
-            // d = d3.extent(v, function(e) {
-            //     return e.y
-            // });
-
-            // s = d3.scale.linear().domain(a).range([o, g.w - o]);
-            // c = d3.scale.linear().domain(d).range([g.h - o, o]);
-            
-            // w = function(e) {
-            //     var t = "translate(" + s(e.x);
-            //     t += "," + c(e.y) + ")";
-            //     return t
-            // };
-
-            // d3.behavior.zoom().x(s).y(c).scaleExtent([1, 10]).on("zoom", function() {
-
-            d3.select('svg').call(d3.zoom().scaleExtent([1, 10])
+            d3.select('svg').call(d3.zoom().scaleExtent([1, 15])
                                 .on("zoom", function() {
-
-
+                                
                                 nodes.attr("transform", d => {
-                                    // s = d3.scaleLinear().range([0, width]);
-                                    // c = d3.scaleLinear().range([g.h - o, o]);
-                                    var e = d3.event.transform;
-                                    var scaled = data.topic_scaled[d.idx]
-                                    return 'translate(' + [(centerX + e.x) + width * (scaled[0]), (centerY + e.y) - height * (scaled[1])] + ')';
+                                    var transform = d3.event.transform;
+                                    
+                                    return 'translate(' + [transform.applyX(xScale(d.x)), transform.applyY(yScale(d.y))] + ')';
                                 });
-                                // nodes.attr("transform", w)
-                                console.log(d3.event.transform.x, d3.event.transform.y);
+                                
                             }));
 
         } else {

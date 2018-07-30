@@ -3,7 +3,7 @@
 To see a visualization result, put below files inside `data` folder:
 
 - dt.json.zip
-- Info.json
+- info.json
 - meta.csv.zip
 - topic_scaled.csv
 - tw.json
