@@ -1,4 +1,4 @@
-var data_folder = ["data/us_canada_humanities_2017/", "data/korea_humanities_2017/"]
+var data_folder = ["data/"]
 var files = {
         info: "info.json",
         meta: "meta.csv.zip",
@@ -509,7 +509,7 @@ function load() {
         }
     });
 
-    load_data(data_folder[1] + files.topic_scaled, function(e, i) {
+    load_data(data_folder[0] + files.topic_scaled, function(e, i) {
         if (typeof i === "string") {
             set_topic_scaled(i)
         } else {
