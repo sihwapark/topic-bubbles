@@ -105,10 +105,51 @@ function draw() {
     console.log(min, max);
 
     var isAbsoluteValueRange = false;
-    let scaleRadius = d3.scaleSqrt().domain(isAbsoluteValueRange? [0, 1] : [min, max]).range([20, 80]);
-    let rescaleValue = d3.scaleSqrt().domain(isAbsoluteValueRange? [0, 1] : [min, max]).range([0, 0.7]);
+    var dataDomain = isAbsoluteValueRange? [0, 1] : [min, max];
+    let scaleRadius = d3.scaleSqrt().domain(dataDomain).range([20, 80]);
+    let scaleValue = d3.scaleSqrt().domain(dataDomain).range([0, 0.7]);
     //var sizeScale = d3.scaleSqrt().domain([0, 1]).range([20,100]);
     pack.radius(d => scaleRadius(d.value))
+
+    var linear = d3.scaleLinear()
+      .domain(dataDomain)
+      .range([scaleColor(scaleValue(dataDomain[0])), scaleColor(scaleValue(dataDomain[1]))]);
+
+    var svg = d3.select("svg");
+
+    svg.append("g")
+      .attr("class", "legend-color")
+      .attr("transform", "translate(" + [20, height - 120] + ")");
+    
+    svg.append("g")
+      .attr("class", 'legend-size')
+      .attr("transform", "translate(" + [100, height - 100] + ")")
+
+    var steps
+    var legendLinear = d3.legendColor()
+      .labelFormat(d3.format(".2f"))
+      .cells(5)
+      .labelOffset(10)
+      .title("Alpha Range")
+      .scale(linear);
+      
+
+    let sizeScale = d3.scaleOrdinal()
+            .domain(['less', 'more'])
+            .range([5, 20] );
+    
+    let legendSize = d3.legendSize()
+            .scale(sizeScale)
+            .shape('circle')
+            .shapePadding(40)
+            .labelOffset(20)
+            .labelAlign('end');
+
+    svg.select(".legend-color")
+      .call(legendLinear);
+
+    svg.select(".legend-size")
+      .call(legendSize);
 
 
     let nodes = pack(root).leaves().map(node => {
@@ -159,7 +200,7 @@ function draw() {
         .attr("ry", 0)
         .attr('width', 0)
         .attr('height', 0)
-        .style('fill', d => scaleColor(rescaleValue(d.value)))
+        .style('fill', d => scaleColor(scaleValue(d.value)))
         .style('cursor', 'pointer')
         .transition().duration(2000).ease(d3.easeElasticOut)
                 .tween('circleIn', (d) => {
