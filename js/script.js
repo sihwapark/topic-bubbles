@@ -160,6 +160,7 @@ function draw() {
         .attr('width', 0)
         .attr('height', 0)
         .style('fill', d => scaleColor(rescaleValue(d.value)))
+        .style('cursor', 'pointer')
         .transition().duration(2000).ease(d3.easeElasticOut)
                 .tween('circleIn', (d) => {
                     let i = d3.interpolateNumber(0, d.radius);
@@ -183,6 +184,7 @@ function draw() {
         .enter().append('tspan')
             .attr('x', 0)
             .attr('y', (d, i, nodes) => (13 + (i - nodes.length / 2 - 0.5) * 10))
+            .style('cursor', 'pointer')
             .text(name => name);
 
     
@@ -225,6 +227,7 @@ function draw() {
             //.attr('fill', d3.rgb(255, 0, 0))
             //.attr('background-color', 'black')
             .attr('font-weight', 'bold')
+            .style('cursor', 'default')
             .text(d => {
                 let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 25]);
 
@@ -252,6 +255,7 @@ function draw() {
                                 layer.append('text')
                                     .style('font-size', w.size + "px")
                                     //.style("fill", color(w.size % 20))
+                                    .style('cursor', 'default')
                                     .attr("transform", 
                                       "translate(" + [w.x, 20 + w.y] + ")rotate(" + w.rotate + ")")   
                                     .text(w.text);
