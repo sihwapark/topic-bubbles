@@ -44,6 +44,32 @@ var simulation;
 var centerX, centerY;
 var width, height;
 
+function ticked() {
+
+    var svg = d3.select("svg");
+    var node = svg.selectAll('.node')
+    
+    if(gui_elements.scaled == false) {
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+
+    } else {
+       
+    }
+
+    //console.log(node.filter((l,i) => l.idx == 45).data()[0]);
+
+    node.select('rect')
+    .attr("rx", d => d.r * d.borderRatio)
+    .attr("ry", d => d.r * d.borderRatio)
+    .attr('width', d => d.r * 2)
+    .attr('height', d => d.r * 2)
+    .attr('x', d => d.r * -1)
+    .attr('y', d => d.r * -1);
+}
+
+let forceCollide = d3.forceCollide(d => d.r + 1);
+var init_nodes;
+
 function draw() {
     if(data.tw == undefined) return;
 
@@ -63,13 +89,13 @@ function draw() {
         .padding(0);
     
 
-    let forceCollide = d3.forceCollide(d => d.r + 1);
+    
     simulation = d3.forceSimulation()
             .force('charge', d3.forceManyBody())
             .force('collide', forceCollide)
             .force('x', d3.forceX(centerX).strength(strength))
             .force('y', d3.forceY(centerY).strength(strength))
-
+            .on("tick", ticked);
 
     let root = d3.hierarchy({ children: data.tw })
             .sum(function(d) { return d.alpha; });
@@ -125,19 +151,7 @@ function draw() {
 
     let focusedNode, focusedTarget;
 
-    simulation.nodes(nodes).on('tick', function() {
-        if(gui_elements.scaled == false) 
-            node.attr('transform', d => `translate(${d.x},${d.y})`)
-
-        
-            node.select('rect')
-            .attr("rx", d => d.r * d.borderRatio)
-            .attr("ry", d => d.r * d.borderRatio)
-            .attr('width', d => d.r * 2)
-            .attr('height', d => d.r * 2)
-            .attr('x', d => d.r * -1)
-            .attr('y', d => d.r * -1);
-    });
+    simulation.nodes(nodes);
 
     var rect = node.append('rect')
         .attr('id', d => d.idx)
@@ -243,31 +257,6 @@ function draw() {
                                     .text(w.text);
                             })
 
-                            
-                            
-                                            // .selectAll('tspan')
-                                            // .data(words)
-                                            // .enter().append('tspan')
-                                                    // 
-                                            
-                            // var layer = node.filter((l, i) => l.idx == d.idx).select('foreignObject');
-                            // console.log(layer.attr('x'), layer.attr('y'));
-                            //     //.classed('wordcloud-overlay__body', true)
-                                
-                                
-                            //     layer
-                            //     // .append('text')
-                            //     //.attr('transform', 'translate(320,200)')
-                            //     // .selectAll('text')
-                            //     .data(words)
-                            //     .enter().append('text')
-                            //         .style("font-size", d => d.size + "px")
-                            //         .style("fill", (d, i) => color(i))
-                            //         .attr("transform", function(d) {
-                            //           return "translate(" + [centerX + d.x, centerY + d.y] + ")rotate(" + d.rotate + ")";
-                            //         })
-                            //         .text(function(d) { return d.text; });
-
                         })
                         .start(); 
 
@@ -333,9 +322,9 @@ function draw() {
                     $currentGroup.select('.topic_name').classed('hidden', true);                    
             })
             .on('interrupt', () => {
-                    //console.log('move interrupt', selectedNode);
-                    // currentNode.fx = null;
-                    // currentNode.fy = null;
+                    console.log('move interrupt', selectedNode);
+                    // selectedNode.fx = null;
+                    // selectedNode.fy = null;
                     simulation.alphaTarget(0);
             });
         });
@@ -426,19 +415,22 @@ function set_topic_scaled(e) {
 function load() {
     var gui = new dat.GUI({ autoPlace: false });
     var customContainer = $('.gui').append($(gui.domElement));
-
+    var svg = d3.select('svg');
     gui.add(gui_elements, 'scaled').onChange(() => {
+
+        var nodes = d3.select('svg').selectAll('.node')
+
         if(gui_elements.scaled) {
 
             simulation.stop();
+            simulation.nodes([]);
 
-            var nodes = d3.select('svg').selectAll('.node')
             data.topic_scaled.forEach((scaled, i) => {
 
                 var node = nodes.filter(l => l.idx == i);
                     node.transition().duration(1000)
                         .attr('transform', d => {
-                            return 'translate(' + [centerX + width * scaled[0], centerY - height * scaled[1]] + ')'
+                             return 'translate(' + [centerX + width * scaled[0], centerY - height * scaled[1]] + ')'
                         })
                         .on('end', d => {
                             d.x = centerX + width * scaled[0];
@@ -450,7 +442,6 @@ function load() {
                         });;
             });
 
-
             var aspect = width / height;
             var n = Math.floor(width / (2.1 * Math.sqrt(aspect * data.tw.length)));
             var i = n * 1.8;
@@ -459,19 +450,33 @@ function load() {
             var xScale = d3.scaleLinear().domain([0, width]).range([o, width - o]);
             var yScale = d3.scaleLinear().domain([height, 0]).range([height - o, o]);
             
-            d3.select('svg').call(d3.zoom().scaleExtent([1, 15])
+            svg.call(d3.zoom().scaleExtent([1, 15])
                                 .on("zoom", function() {
                                 
-                                nodes.attr("transform", d => {
-                                    var transform = d3.event.transform;
-                                    
-                                    return 'translate(' + [transform.applyX(xScale(d.x)), transform.applyY(yScale(d.y))] + ')';
-                                });
+                                var transform = d3.event.transform;
+                                var scaledX, scaledY;
                                 
+                                nodes.transition().duration(1)
+                                    .attr("transform", d => {
+                                        scaledX = transform.applyX(xScale(d.x));
+                                        scaledY = transform.applyY(yScale(d.y));
+
+                                        return 'translate(' + [scaledX, scaledY ] + ')';
+                                    })
                             }));
 
         } else {
+            svg.on("mousedown.zoom", null);
+            svg.on("mousemove.zoom", null);
+            svg.on("dblclick.zoom", null);
+            svg.on("touchstart.zoom", null);
+            svg.on("wheel.zoom", null);
+            svg.on("mousewheel.zoom", null);
+            svg.on("MozMousePixelScroll.zoom", null);
+
+            simulation.nodes(nodes.data());
             simulation.alphaTarget(0.2).restart();
+            
         }
     });
 
