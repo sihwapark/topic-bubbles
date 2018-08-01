@@ -47,13 +47,13 @@ A layout of word clouds in a square is automatically caculated by Jason Davies's
 
 
 
-###Scaled View
+### Scaled View
 
 As [the dfr-browser](https://agoldst.github.io/dfr-browser/) shows a scaled view of topic models, it also re-plots topic bubbles according to values in `topic_scaled.csv` after clicking the 'scaled' checkbox in the GUI at the top-right corner.
 
 
 
-###Force Simulation
+### Force Simulation
 
 A force simulation with the use of `d3.forceSimulation` is applied in the background and controls toppic bubbles' position/motion/collision, giving a force toward a center of the screen.
 
