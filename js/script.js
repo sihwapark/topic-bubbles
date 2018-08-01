@@ -10,8 +10,9 @@ var files = {
 var data = {
 };
 
-var gui_elements ={ 
-        scaled : false
+var gui_elements ={
+        'absolute range': false,
+        'scaled': false
 };
 
 function load_data(e, t) {
@@ -69,6 +70,7 @@ function ticked() {
 
 let forceCollide = d3.forceCollide(d => d.r + 1);
 var init_nodes;
+let scaleColor = d3.scaleSequential(d3.interpolateReds); 
 
 function draw() {
     if(data.tw == undefined) return;
@@ -81,15 +83,11 @@ function draw() {
     centerX = width * 0.5;
     centerY = height * 0.5;
     let strength = 0.05;
-    //let scaleColor = d3.scaleSequential(d3.interpolateOrRd);
-    let scaleColor = d3.scaleSequential(d3.interpolateReds); 
 
     let pack = d3.pack()
         .size([width, height])
         .padding(0);
-    
 
-    
     simulation = d3.forceSimulation()
             .force('charge', d3.forceManyBody())
             .force('collide', forceCollide)
@@ -100,22 +98,19 @@ function draw() {
     let root = d3.hierarchy({ children: data.tw })
             .sum(function(d) { return d.alpha; });
 
-    var max = d3.max(data.tw, d => +d.alpha);
-    var min = d3.min(data.tw, d => +d.alpha);
-    console.log(min, max);
+    data.alphaRange = [d3.min(data.tw, d => +d.alpha), d3.max(data.tw, d => +d.alpha)];
+    //console.log('alpha range: ' + data.alphaRange);
 
-    var isAbsoluteValueRange = false;
-    var dataDomain = isAbsoluteValueRange? [0, 1] : [min, max];
+    var isAbsoluteValueRange = gui_elements['absolute range'];
+    var dataDomain = isAbsoluteValueRange? [0, 1] : data.alphaRange;
     let scaleRadius = d3.scaleSqrt().domain(dataDomain).range([20, 80]);
     let scaleValue = d3.scaleSqrt().domain(dataDomain).range([0, 0.7]);
     //var sizeScale = d3.scaleSqrt().domain([0, 1]).range([20,100]);
     pack.radius(d => scaleRadius(d.value))
 
-    var linear = d3.scaleLinear()
+    var colorScale = d3.scaleSqrt()
       .domain(dataDomain)
       .range([scaleColor(scaleValue(dataDomain[0])), scaleColor(scaleValue(dataDomain[1]))]);
-
-    var svg = d3.select("svg");
 
     svg.append("g")
       .attr("class", "legend-color")
@@ -131,11 +126,11 @@ function draw() {
       .cells(5)
       .labelOffset(10)
       .title("Alpha Range")
-      .scale(linear);
+      .scale(colorScale);
       
 
     let sizeScale = d3.scaleOrdinal()
-            .domain(['less', 'more'])
+            .domain(['low', 'high'])
             .range([5, 20] );
     
     let legendSize = d3.legendSize()
@@ -367,7 +362,7 @@ function draw() {
                     $currentGroup.select('.topic_name').classed('hidden', true);                    
             })
             .on('interrupt', () => {
-                    console.log('move interrupt', selectedNode);
+                    //console.log('move interrupt', selectedNode);
                     // selectedNode.fx = null;
                     // selectedNode.fy = null;
                     simulation.alphaTarget(0);
@@ -458,78 +453,12 @@ function set_topic_scaled(e) {
 };
 
 function load() {
-    var gui = new dat.GUI({ autoPlace: false });
-    var customContainer = $('.gui').append($(gui.domElement));
-    var svg = d3.select('svg');
-    gui.add(gui_elements, 'scaled').onChange(() => {
-
-        var nodes = d3.select('svg').selectAll('.node')
-
-        if(gui_elements.scaled) {
-
-            simulation.stop();
-            simulation.nodes([]);
-
-            data.topic_scaled.forEach((scaled, i) => {
-
-                var node = nodes.filter(l => l.idx == i);
-                    node.transition().duration(1000)
-                        .attr('transform', d => {
-                             return 'translate(' + [centerX + width * scaled[0], centerY - height * scaled[1]] + ')'
-                        })
-                        .on('end', d => {
-                            d.x = centerX + width * scaled[0];
-                            d.y = centerY - height * scaled[1];
-                        })
-                        .on('interrupt', d => {
-                            d.x = centerX + width * scaled[0];
-                            d.y = centerY - height * scaled[1];     
-                        });;
-            });
-
-            var aspect = width / height;
-            var n = Math.floor(width / (2.1 * Math.sqrt(aspect * data.tw.length)));
-            var i = n * 1.8;
-            var o = 1.1 * n;
-
-            var xScale = d3.scaleLinear().domain([0, width]).range([o, width - o]);
-            var yScale = d3.scaleLinear().domain([height, 0]).range([height - o, o]);
-            
-            svg.call(d3.zoom().scaleExtent([1, 15])
-                                .on("zoom", function() {
-                                
-                                var transform = d3.event.transform;
-                                var scaledX, scaledY;
-                                
-                                nodes.transition().duration(1)
-                                    .attr("transform", d => {
-                                        scaledX = transform.applyX(xScale(d.x));
-                                        scaledY = transform.applyY(yScale(d.y));
-
-                                        return 'translate(' + [scaledX, scaledY ] + ')';
-                                    })
-                            }));
-
-        } else {
-            svg.on("mousedown.zoom", null);
-            svg.on("mousemove.zoom", null);
-            svg.on("dblclick.zoom", null);
-            svg.on("touchstart.zoom", null);
-            svg.on("wheel.zoom", null);
-            svg.on("mousewheel.zoom", null);
-            svg.on("MozMousePixelScroll.zoom", null);
-
-            simulation.nodes(nodes.data());
-            simulation.alphaTarget(0.2).restart();
-            
-        }
-    });
-
+    
     load_data(data_folder[0] + files.topic_scaled, function(e, i) {
         if (typeof i === "string") {
             set_topic_scaled(i)
         } else {
-            set_topic_scaled("");
+            set_topic_scaled(null);
             console.log("Unable to load a file " + files.topic_scaled)
         }
     });
@@ -544,4 +473,94 @@ function load() {
     });
 
     //window.addEventListener("resize", draw);
+    addGui();
 };
+
+function addGui() {
+    var gui = new dat.GUI({ autoPlace: false });
+    var customContainer = $('.gui').append($(gui.domElement));
+    var svg = d3.select('svg');
+    var scaled = gui.add(gui_elements, 'scaled');
+    
+
+    if(data.topic_scaled != 'undefined' ) {
+        scaled.onChange(() => {
+
+            var nodes = svg.selectAll('.node')
+
+            if(gui_elements.scaled) {
+
+                simulation.stop();
+                simulation.nodes([]);
+
+                data.topic_scaled.forEach((scaled, i) => {
+
+                    var node = nodes.filter(l => l.idx == i);
+                        node.transition().duration(1000)
+                            .attr('transform', d => {
+                                 return 'translate(' + [centerX + width * scaled[0], centerY - height * scaled[1]] + ')'
+                            })
+                            .on('end', d => {
+                                d.x = centerX + width * scaled[0];
+                                d.y = centerY - height * scaled[1];
+                            })
+                            .on('interrupt', d => {
+                                d.x = centerX + width * scaled[0];
+                                d.y = centerY - height * scaled[1];     
+                            });;
+                });
+
+                var aspect = width / height;
+                var n = Math.floor(width / (2.1 * Math.sqrt(aspect * data.tw.length)));
+                var i = n * 1.8;
+                var o = 1.1 * n;
+
+                var xScale = d3.scaleLinear().domain([0, width]).range([o, width - o]);
+                var yScale = d3.scaleLinear().domain([height, 0]).range([height - o, o]);
+                
+                svg.call(d3.zoom().scaleExtent([1, 15])
+                                    .on("zoom", function() {
+                                    
+                                    var transform = d3.event.transform;
+                                    var scaledX, scaledY;
+                                    
+                                    nodes.transition().duration(1)
+                                        .attr("transform", d => {
+                                            scaledX = transform.applyX(xScale(d.x));
+                                            scaledY = transform.applyY(yScale(d.y));
+
+                                            return 'translate(' + [scaledX, scaledY ] + ')';
+                                        })
+                                }));
+
+            } else {
+                svg.on("mousedown.zoom", null);
+                svg.on("mousemove.zoom", null);
+                svg.on("dblclick.zoom", null);
+                svg.on("touchstart.zoom", null);
+                svg.on("wheel.zoom", null);
+                svg.on("mousewheel.zoom", null);
+                svg.on("MozMousePixelScroll.zoom", null);
+
+                simulation.nodes(nodes.data());
+                simulation.alphaTarget(0.2).restart();
+                
+            }
+        });
+    } else {
+        scaled.domElement.childNodes[0].disabled = true;
+    }
+
+
+    gui.add(gui_elements, 'absolute range').onChange(() => {
+
+        if(gui_elements.scaled) {
+            scaled.domElement.childNodes[0].checked = false;
+            gui_elements.scaled = false;
+        }
+
+        svg.selectAll('*').remove();
+        draw();
+
+    });
+}
