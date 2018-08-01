@@ -2,6 +2,8 @@
 
 This visualization project generates an interactive bubble chart of topic models by using [D3.js](https://d3js.org/). Based on the experience gained from the use of  [the dfr-browser](https://agoldst.github.io/dfr-browser/), a simple topic model browser, it aims to present more intuitve and interative topic model visualization.
 
+![alt text](img/screenshot.png "Logo Title Text 1")
+
 
 
 ## How to Use
