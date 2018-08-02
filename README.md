@@ -8,7 +8,7 @@ This visualization project generates an interactive bubble chart of topic models
 
 ## How to Use
 
-Basically, it visualizes topic model data that a R package [dfrtopics](https://github.com/agoldst/dfrtopics) creates. To see a visualization result, it requires to create the model data first. Please see [the dfr-browser](https://agoldst.github.io/dfr-browser/) to know how to generate the model data in detail. 
+Basically, it visualizes topic model data that the R package [dfrtopics](https://github.com/agoldst/dfrtopics) creates. To see a visualization result, it requires to create the model data first. Please see [the dfr-browser](https://agoldst.github.io/dfr-browser/) to know how to generate the model data in detail. 
 
 After having the model data, put below files inside `data` folder:
 
@@ -33,7 +33,7 @@ Each bubble represents a topic and its size and color are determined by `alpha` 
   - The alpha range depends on real data values by finding the maximum and minimum alpha value from the data.
   - Mapped ranges for color and size and a scaling function are the same with the absolute range mapping.
 
-Through the 'absolute range' checkbox, it is possible to change a mapping mode.
+Through the selection of the 'absolute range' checkbox in the GUI at the top-right corne, it is possible to change a mapping mode.
 
 When a bubble is clicked, it expands its size morphing into a big rounded square and reveals words of each topic as a form of word clouds.
 
@@ -41,7 +41,7 @@ When a bubble is clicked, it expands its size morphing into a big rounded square
 
 ### Word Cloud
 
-Word clouds represent words of a topic by varying a font size according to a ratio of each word's weight to the maximum weight among words in the topic. A ratio of each word, ranging from 0 to 1, is mapped into a font size in the range [5, 25]. with the use of `d3.scaleSqrt()`.
+Word clouds represent words of a topic by varying a font size according to a ratio of each word's weight to the maximum weight among words in the topic. A ratio of each word, ranging from 0 to 1, is mapped into a font size in the range [5, 25], with the use of `d3.scaleSqrt()`.
 
 A layout of word clouds in a square is automatically caculated by Jason Davies's library, [d3-cloud](https://github.com/jasondavies/d3-cloud).
 
@@ -49,7 +49,7 @@ A layout of word clouds in a square is automatically caculated by Jason Davies's
 
 ### Scaled View
 
-As [the dfr-browser](https://agoldst.github.io/dfr-browser/) shows a scaled view of topic models, it also re-plots topic bubbles according to values in `topic_scaled.csv` after clicking the 'scaled' checkbox in the GUI at the top-right corner.
+As [the dfr-browser](https://agoldst.github.io/dfr-browser/) shows a scaled view of topic models, it also re-plots topic bubbles according to values in `topic_scaled.csv` when the 'scaled' checkbox in the GUI is selected.
 
 
 
