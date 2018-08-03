@@ -71,11 +71,15 @@ function ticked() {
 let forceCollide = d3.forceCollide(d => d.r + 1);
 var init_nodes;
 let scaleColor = d3.scaleSequential(d3.interpolateReds); 
+var wordCloudLayout = [];
+var pack;
+var root;
 
-function draw() {
-    if(data.tw == undefined) return;
 
-    // based on the bubble chart example, https://naustud.io/tech-stack/
+function init() {
+     if(data.tw == undefined) return;
+
+    
     var svg = d3.select("svg");
     width = svg.node().clientWidth;
     height = +svg.node().clientHeight;
@@ -84,7 +88,7 @@ function draw() {
     centerY = height * 0.5;
     let strength = 0.05;
 
-    let pack = d3.pack()
+    pack = d3.pack()
         .size([width, height])
         .padding(0);
 
@@ -95,8 +99,13 @@ function draw() {
             .force('y', d3.forceY(centerY).strength(strength))
             .on("tick", ticked);
 
-    let root = d3.hierarchy({ children: data.tw })
+    root = d3.hierarchy({ children: data.tw })
             .sum(function(d) { return d.alpha; });
+}
+
+function draw() {
+    // based on the bubble chart example, https://naustud.io/tech-stack/
+    var svg = d3.select("svg");
 
     data.alphaRange = [d3.min(data.tw, d => +d.alpha), d3.max(data.tw, d => +d.alpha)];
     //console.log('alpha range: ' + data.alphaRange);
@@ -265,40 +274,24 @@ function draw() {
             .attr('font-weight', 'bold')
             .style('cursor', 'default')
             .text(d => {
-                let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 25]);
 
-                var maxWeight = d.words[0].weight;
-                var words_frequency = d.words.slice(0, 50).map(w => {
-                    return {
-                        text: w.word,
-                        size: Math.floor(fontSizeScale(w.weight / maxWeight))
-                    }
-                });
 
-                d3.layout.cloud().size([centerY - 10, centerY - 50])
-                        .timeInterval(10)
-                        .words(words_frequency)
-                        .padding(3)
-                        .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
-                        .fontSize(w => w.size)
-                        .on('end', (words) => {
-                            
-                            var color = d3.scaleOrdinal(d3.schemeCategory20);
+                //console.log('console.log(data.wordCloudLayout);', data.tw[d.idx].wordCloud);
 
-                            var layer = wordCloudLayer.filter((l,i) => l.idx == d.idx)
+                if(data.tw[d.idx].wordCloud != 'undefined') {
 
-                            words.forEach(w => {
-                                layer.append('text')
-                                    .style('font-size', w.size + "px")
-                                    //.style("fill", color(w.size % 20))
-                                    .style('cursor', 'default')
-                                    .attr("transform", 
-                                      "translate(" + [w.x, 20 + w.y] + ")rotate(" + w.rotate + ")")   
-                                    .text(w.text);
-                            })
-
-                        })
-                        .start(); 
+                    var layer = wordCloudLayer.filter((l,i) => l.idx == d.idx);
+                    
+                    data.tw[d.idx].wordCloud.forEach(w => { 
+                        layer.append('text')
+                            .style('font-size', w.size + "px")
+                            //.style("fill", color(w.size % 20))
+                            .style('cursor', 'default')
+                            .attr("transform", 
+                              "translate(" + [w.x, 20 + w.y] + ")rotate(" + w.rotate + ")")   
+                            .text(w.text);
+                    });
+                }
 
                 return d.name;
             });
@@ -406,6 +399,37 @@ function draw() {
     });
 }
 
+function calculateWordClouds() {
+    let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 20]);
+
+    data.tw.forEach((d, i) => {
+        var maxWeight = d.words[i].weight;
+        console.log(maxWeight);
+        var words_frequency = d.words.slice(0, 50).map(w => {
+            return {
+                text: w.word,
+                size: Math.floor(fontSizeScale(w.weight / maxWeight))
+            }
+        });
+
+        d3.layout.cloud().size([centerY - 10, centerY - 50])
+                .timeInterval(10)
+                .words(words_frequency)
+                .padding(3)
+                .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
+                .fontSize(w => w.size)
+                .on('end', (words) => {
+                    data.tw[i].wordCloud = words;
+
+                    console.log(data.tw[i].words);
+
+                    if(i == data.tw.length - 1) draw();
+
+                })
+                .start();
+    });
+}
+
 function set_tw(e) {
     var tw_json;
     
@@ -432,12 +456,15 @@ function set_tw(e) {
             name: "Topic " + (n + 1),
             weight: v,
             alpha: tw_json.alpha[n],
-            words: w
+            words: w,
+            wordCloud: []
         }
         return t
     }); 
 
-    draw();
+    init();
+    calculateWordClouds();
+    
 };
 
 function set_topic_scaled(e) {
