@@ -15,6 +15,42 @@ var gui_elements ={
         'scaled': false
 };
 
+var simulation;
+var centerX, centerY;
+var width, height;
+
+let forceCollide = d3.forceCollide(d => d.r + 1);
+var init_nodes;
+let scaleColor = d3.scaleSequential(d3.interpolateReds); 
+var pack;
+var root;
+var data_nodes;
+let focusedNode, focusedTarget;
+
+var dataDomain;
+var scaleRadius;
+var scaleValue;
+
+function load() {
+    
+    load_data(data_folder[0] + files.topic_scaled, function(e, i) {
+        if (typeof i === "string") {
+            set_topic_scaled(i);
+        } else {
+            console.log("Unable to load a file " + files.topic_scaled)
+        }
+    });
+
+    load_data(data_folder[0] + files.tw, function(e, i) {
+    
+        if (typeof i === "string") {
+            set_tw(i);
+        } else {
+            console.log("Unable to load a file " + files.tw)
+        }
+    });
+};
+
 function load_data(e, t) {
     var i, n;
     if (e === undefined) {
@@ -41,9 +77,54 @@ function load_data(e, t) {
     })
 };
 
-var simulation;
-var centerX, centerY;
-var width, height;
+function set_tw(e) {
+    var tw_json;
+    
+    if (typeof e !== "string") {
+        return
+    }
+    tw_json = JSON.parse(e);
+
+    var alpha = tw_json.alpha;
+
+    data.tw = tw_json.tw.map(function(e, n) {
+        
+        var v = 0;
+        var w = e.words.map(function(i, n) {
+            v += e.weights[n];
+            return {
+                word: i,
+                weight: e.weights[n]
+            }
+        });
+
+        var t = {
+            idx: n,
+            name: "Topic " + (n + 1),
+            weight: v,
+            alpha: tw_json.alpha[n],
+            words: w,
+            wordCloud: []
+        }
+        return t
+    }); 
+
+    init();
+    calculateWordClouds();
+    
+};
+
+function set_topic_scaled(e) {
+    var i;
+    if (typeof e !== "string") {
+        return
+    }
+
+    i = e.replace(/^\n*/, "").replace(/\n*$/, "\n");
+    data.topic_scaled = d3.csvParseRows(i, function(e) {
+        return e.map(parseFloat)
+    });
+};
 
 function ticked() {
 
@@ -65,20 +146,12 @@ function ticked() {
     .attr('width', d => d.r * 2)
     .attr('height', d => d.r * 2)
     .attr('x', d => d.r * -1)
-    .attr('y', d => d.r * -1);
+    .attr('y', d => d.r * -1)
+    .style('fill', d => scaleColor(scaleValue(d.value)));
 }
-
-let forceCollide = d3.forceCollide(d => d.r + 1);
-var init_nodes;
-let scaleColor = d3.scaleSequential(d3.interpolateReds); 
-var wordCloudLayout = [];
-var pack;
-var root;
-
 
 function init() {
      if(data.tw == undefined) return;
-
     
     var svg = d3.select("svg");
     width = svg.node().clientWidth;
@@ -101,21 +174,32 @@ function init() {
 
     root = d3.hierarchy({ children: data.tw })
             .sum(function(d) { return d.alpha; });
+
+    setMappingScale();
+
+    pack.radius(d => scaleRadius(d.value));
+    
+    data_nodes = pack(root).leaves().map(node => {
+        const data = node.data;
+        //console.log(data.alpha + " " + node.r + " " + scaleRadius(data.alpha), data.words);
+        return {
+            x: centerX + (node.x - centerX) * 3,
+            y: centerY + (node.y - centerY) * 3,
+            r: 0,
+            borderRatio: 1,
+            idx: data.idx,
+            radius: node.r,
+            value: node.value,
+            wieght: data.weight,
+            words: data.words,
+            name: data.name
+        }
+    });
 }
 
-function draw() {
-    // based on the bubble chart example, https://naustud.io/tech-stack/
-    var svg = d3.select("svg");
+function drawLegend() {
 
-    data.alphaRange = [d3.min(data.tw, d => +d.alpha), d3.max(data.tw, d => +d.alpha)];
-    //console.log('alpha range: ' + data.alphaRange);
-
-    var isAbsoluteValueRange = gui_elements['absolute range'];
-    var dataDomain = isAbsoluteValueRange? [0, 1] : data.alphaRange;
-    let scaleRadius = d3.scaleSqrt().domain(dataDomain).range([20, 80]);
-    let scaleValue = d3.scaleSqrt().domain(dataDomain).range([0, 0.7]);
-    //var sizeScale = d3.scaleSqrt().domain([0, 1]).range([20,100]);
-    pack.radius(d => scaleRadius(d.value))
+    var svg = d3.select('svg');
 
     var colorScale = d3.scaleSqrt()
       .domain(dataDomain)
@@ -154,27 +238,25 @@ function draw() {
 
     svg.select(".legend-size")
       .call(legendSize);
+}
 
+function setMappingScale() {
+    if(typeof data.alphaRange == 'undefined')
+        data.alphaRange = [d3.min(data.tw, d => +d.alpha), d3.max(data.tw, d => +d.alpha)];
 
-    let nodes = pack(root).leaves().map(node => {
-                const data = node.data;
-                //console.log(data.alpha + " " + node.r + " " + scaleRadius(data.alpha), data.words);
-                return {
-                    x: centerX + (node.x - centerX) * 3,
-                    y: centerY + (node.y - centerY) * 3,
-                    r: 0,
-                    borderRatio: 1,
-                    idx: data.idx,
-                    radius: node.r,
-                    value: node.value,
-                    wieght: data.weight,
-                    words: data.words,
-                    name: data.name
-                }
-            });
-    
+    var isAbsoluteValueRange = gui_elements['absolute range'];
+
+    dataDomain = isAbsoluteValueRange? [0, 1] : data.alphaRange;
+    scaleRadius = d3.scaleSqrt().domain(dataDomain).range([20, 80]);
+    scaleValue = d3.scaleSqrt().domain(dataDomain).range([0, 0.7]);
+}
+
+function draw() {
+    // based on the bubble chart example, https://naustud.io/tech-stack/
+    var svg = d3.select("svg");
+
     var node = svg.selectAll('.node')
-        .data(nodes)
+        .data(data_nodes)
         .enter().append('g')
         .attr('class', 'node')
         .call(d3.drag()
@@ -194,9 +276,7 @@ function draw() {
                     d.fy = null;
                 }));
 
-    let focusedNode, focusedTarget;
-
-    simulation.nodes(nodes);
+    simulation.nodes(data_nodes);
 
     var rect = node.append('rect')
         .attr('id', d => d.idx)
@@ -275,14 +355,11 @@ function draw() {
             .style('cursor', 'default')
             .text(d => {
 
-
-                //console.log('console.log(data.wordCloudLayout);', data.tw[d.idx].wordCloud);
-
-                if(data.tw[d.idx].wordCloud != 'undefined') {
+                if(typeof data.wordCloud[d.idx] != 'undefined') {
 
                     var layer = wordCloudLayer.filter((l,i) => l.idx == d.idx);
                     
-                    data.tw[d.idx].wordCloud.forEach(w => { 
+                    data.wordCloud[d.idx].forEach(w => { 
                         layer.append('text')
                             .style('font-size', w.size + "px")
                             //.style("fill", color(w.size % 20))
@@ -397,14 +474,23 @@ function draw() {
 
         }
     });
+
+    addGui();
+    drawLegend();
 }
 
+
 function calculateWordClouds() {
-    let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 20]);
+
+    var task = 0;
+    data.wordCloud = new Array();
+
+    let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 25]);
 
     data.tw.forEach((d, i) => {
-        var maxWeight = d.words[i].weight;
-        console.log(maxWeight);
+        
+        var maxWeight = d.words[0].weight;
+        //done[i] = false;
         var words_frequency = d.words.slice(0, 50).map(w => {
             return {
                 text: w.word,
@@ -415,102 +501,29 @@ function calculateWordClouds() {
         d3.layout.cloud().size([centerY - 10, centerY - 50])
                 .timeInterval(10)
                 .words(words_frequency)
-                .padding(3)
+                .padding(5)
                 .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
                 .fontSize(w => w.size)
                 .on('end', (words) => {
-                    data.tw[i].wordCloud = words;
+                    data.wordCloud[i] = words;
+                    task--;
 
-                    console.log(data.tw[i].words);
-
-                    if(i == data.tw.length - 1) draw();
-
+                    if(task == 0)
+                        draw();
                 })
                 .start();
+
+        task++;
     });
 }
-
-function set_tw(e) {
-    var tw_json;
-    
-    if (typeof e !== "string") {
-        return
-    }
-    tw_json = JSON.parse(e);
-
-    var alpha = tw_json.alpha;
-
-    data.tw = tw_json.tw.map(function(e, n) {
-        
-        var v = 0;
-        var w = e.words.map(function(i, n) {
-            v += e.weights[n];
-            return {
-                word: i,
-                weight: e.weights[n]
-            }
-        });
-
-        var t = {
-            idx: n,
-            name: "Topic " + (n + 1),
-            weight: v,
-            alpha: tw_json.alpha[n],
-            words: w,
-            wordCloud: []
-        }
-        return t
-    }); 
-
-    init();
-    calculateWordClouds();
-    
-};
-
-function set_topic_scaled(e) {
-    var i;
-    if (typeof e !== "string") {
-        return
-    }
-
-    i = e.replace(/^\n*/, "").replace(/\n*$/, "\n");
-    data.topic_scaled = d3.csvParseRows(i, function(e) {
-        return e.map(parseFloat)
-    });
-};
-
-function load() {
-    
-    load_data(data_folder[0] + files.topic_scaled, function(e, i) {
-        if (typeof i === "string") {
-            set_topic_scaled(i)
-        } else {
-            set_topic_scaled(null);
-            console.log("Unable to load a file " + files.topic_scaled)
-        }
-    });
-
-    load_data(data_folder[0] + files.tw, function(e, i) {
-    
-        if (typeof i === "string") {
-            set_tw(i);
-        } else {
-            console.log("Unable to load a file " + files.tw)
-        }
-    });
-
-    //window.addEventListener("resize", draw);
-    addGui();
-};
 
 function addGui() {
     var gui = new dat.GUI({ autoPlace: false });
     var customContainer = $('.gui').append($(gui.domElement));
     var svg = d3.select('svg');
     var scaled = gui.add(gui_elements, 'scaled');
-    
 
-    if(data.topic_scaled != 'undefined' ) {
+    if(typeof data.topic_scaled != 'undefined' ) {
         scaled.onChange(() => {
 
             var nodes = svg.selectAll('.node')
@@ -581,13 +594,39 @@ function addGui() {
 
     gui.add(gui_elements, 'absolute range').onChange(() => {
 
-        if(gui_elements.scaled) {
-            scaled.domElement.childNodes[0].checked = false;
-            gui_elements.scaled = false;
-        }
+        setMappingScale();
+        svg.select('.legend-color').remove();
+        svg.select('.legend-size').remove();
 
-        svg.selectAll('*').remove();
-        draw();
+        drawLegend();
+
+        var rect = svg.selectAll('.node rect[id]')
+        
+        simulation.alphaTarget(0.2).restart();
+
+        rect.transition().duration(1000).ease(d3.easeElasticOut)
+                .tween('circleIn', (d) => {
+                    var src = d.r;
+                    d.radius = scaleRadius(d.value);
+                    var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
+                    
+                    let i = d3.interpolateNumber(src, dst);
+
+                    return (t) => {
+
+                        d.r = i(t);
+                        simulation.force('collide', forceCollide);
+                    }
+                })
+                .on('end', (t) => {
+                    
+                    simulation.alphaTarget(0);
+                                       
+                })
+                .on('interrupt', () => {
+                    
+                    simulation.alphaTarget(0);
+                });
 
     });
 }
