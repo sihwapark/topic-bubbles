@@ -1,4 +1,4 @@
-var data_folder = ["data/us_canada_humanities_2017/"]
+var data_folder = ["data/"]
 var files = {
         info: "info.json",
         meta: "meta.csv.zip",
