@@ -1,7 +1,7 @@
 /data/*
 !/data/.gitkeep
 !/data/tw.json
-!/data/topic_scaled
+!/data/topic_scaled.csv
 !/data/info.json
 !/data/dt.json.zip
 !/data/meta.csv.zip
