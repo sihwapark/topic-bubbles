@@ -1,4 +1,4 @@
-var data_folder = ["data/"]
+var data_folder = ["data/us_canada_humanities_2017/"]
 var files = {
         info: "info.json",
         meta: "meta.csv.zip",
@@ -10,9 +10,10 @@ var files = {
 var data = {
 };
 
-var gui_elements ={
+var gui_elements = {
         'absolute range': false,
-        'scaled': false
+        'scaled': false,
+        'search a word': ''
 };
 
 var simulation;
@@ -30,6 +31,9 @@ let focusedNode, focusedTarget;
 var dataDomain;
 var scaleRadius;
 var scaleValue;
+
+var coloringByKeyword = false;
+var valueByKeyword = [];
 
 function load() {
     
@@ -148,6 +152,7 @@ function ticked() {
     .attr('x', d => d.r * -1)
     .attr('y', d => d.r * -1)
     .style('fill', d => scaleColor(scaleValue(d.value)));
+    // .style('fill', d => scaleColor(scaleValue(coloringByKeyword? valueByKeyword[d.idx].value : d.value)));
 }
 
 function init() {
@@ -192,7 +197,8 @@ function init() {
             value: node.value,
             wieght: data.weight,
             words: data.words,
-            name: data.name
+            name: data.name,
+            endAngle: 0
         }
     });
 }
@@ -295,6 +301,17 @@ function draw() {
                         simulation.force('collide', forceCollide);
                     }
                 })
+    
+    var arc = d3.arc();
+    node.append('path')
+        .classed('arc', true)
+        .attr('id', d => d.idx)
+        .attr('d', d => arc({
+            innerRadius: 0,
+            outerRadius: d.radius,
+            startAngle:0,
+            endAngle:0
+        })).style('fill', 'orange');
 
     node.append("clipPath")
         .attr("id", d => `clip-${d.idx}`)
@@ -429,7 +446,8 @@ function draw() {
                     let $currentGroup = d3.select(currentTarget);
                     $currentGroup.select('.wordcloud-overlay')
                         .classed('hidden', false);
-                    $currentGroup.select('.topic_name').classed('hidden', true);                    
+                    $currentGroup.select('.topic_name').classed('hidden', true);
+                    $currentGroup.select('.arc').classed('hidden', true);
             })
             .on('interrupt', () => {
                     //console.log('move interrupt', selectedNode);
@@ -461,6 +479,7 @@ function draw() {
                 .on('end', () => {
 
                     d3.select(focusedTarget).select('.topic_name').classed('hidden', false);
+                    d3.select(focusedTarget).select('.arc').classed('hidden', false);
                     //d3.select(focusedNode).moveToBack();
                     focusedNode = null;
                     focusedTarget = null;
@@ -605,7 +624,7 @@ function addGui() {
         simulation.alphaTarget(0.2).restart();
 
         rect.transition().duration(1000).ease(d3.easeElasticOut)
-                .tween('circleIn', (d) => {
+                .tween('circleResize', (d) => {
                     var src = d.r;
                     d.radius = scaleRadius(d.value);
                     var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
@@ -628,5 +647,101 @@ function addGui() {
                     simulation.alphaTarget(0);
                 });
 
+    });
+
+    // function for searching a keyword to find what topics include the keyword 
+    // it 
+    gui.add(gui_elements, 'search a word').onFinishChange(keyword => {
+        let isKeywordEmpty = (keyword == '');
+        var result = [];
+        
+        coloringByKeyword = !isKeywordEmpty;
+
+        if(isKeywordEmpty == false) {
+            data.tw.forEach((d, i) => {
+            
+                let weight = d.weight;
+                result[i] = {idx: i, value: 0};
+
+                d.words.find(w => {
+
+                    if(w.word == keyword) {
+                        //console.log(i, w.weight/weight);
+                        result[i] = {idx: i, value: w.weight / weight};
+                    }
+                });
+            
+            });
+        }
+
+
+        valueByKeyword = result;
+
+        var rect = svg.selectAll('.node rect[id]');
+        var arcPath = svg.selectAll('.node path[id]');
+        var arc = d3.arc();
+
+        console.log(arcPath);
+
+        //let scaleByKeyword = d3.scaleSqrt().domain([0, d3.max(result, d => +d.value)]).range([0, 80]);
+        let scaleByKeyword = d3.scaleSqrt().domain([0, 1]).range([0, 80]);
+
+        rect.transition().duration(1000).ease(d3.easeElasticOut)
+                .tween('circleSearch', (d) => {
+                    var src = d.r;
+                    // d.radius = isKeywordEmpty? scaleRadius(d.value) : scaleByKeyword(result[d.idx].value);
+                    d.radius = isKeywordEmpty? scaleRadius(d.value) : (result[d.idx].value > 0)? scaleRadius(d.value) : 0;
+
+                    var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
+                    let i = d3.interpolateNumber(src, dst);
+
+                    return (t) => {
+                        d.r = i(t);
+                        if(d.r < 0) d.r = 0;
+                        simulation.force('collide', forceCollide);
+                    }
+                })
+                .on('end', (t) => {
+                    
+                    simulation.alphaTarget(0);
+                                       
+                })
+                .on('interrupt', () => {
+                    
+                    simulation.alphaTarget(0);
+                });
+
+        arcPath.transition().duration(1000)
+                    .attrTween('d', (d) => {
+                        let newAngle = isKeywordEmpty? 0 : 2 * Math.PI * result[d.idx].value;
+                        let i = d3.interpolateNumber(d.endAngle, newAngle);
+
+                        return (t) => {
+                            d.endAngle = i(t);
+                            
+                            return arc({
+                                  innerRadius: 0,
+                                  outerRadius: d.radius,
+                                  startAngle: 0,
+                                  endAngle: d.endAngle
+                                });
+                        }
+                    });
+
+        simulation.alphaTarget(0.2).restart();
+
+        //result.sort(function(a, b) { return b.value - a.value });
+
+        //console.log(result);
+
+        // f(typeof data.alphaRange == 'undefined')
+        // data.alphaRange = [d3.min(data.tw, d => +d.alpha), d3.max(data.tw, d => +d.alpha)];
+
+        // var isAbsoluteValueRange = gui_elements['absolute range'];
+
+        // dataDomain = isAbsoluteValueRange? [0, 1] : data.alphaRange;
+        // scaleRadius = d3.scaleSqrt().domain(dataDomain).range([20, 80]);
+        // scaleValue = d3.scaleSqrt().domain(dataDomain).range([0, 0.7]);
+        
     });
 }
