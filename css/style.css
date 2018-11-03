@@ -90,6 +90,11 @@ svg {
     fill: rgb(200, 200, 200);
 }
 
+.legend-search text {
+    font-size: 13px;
+    text-anchor: start;
+}
+
 /*text.topic_word {
     text-anchor: middle;
     fill: rgba(0,0,0,0.6);

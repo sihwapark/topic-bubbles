@@ -1,10 +1,10 @@
-var data_folder = ["data/"]
+var data_folder = ['data/']
 var files = {
-        info: "info.json",
-        meta: "meta.csv.zip",
-        dt: "dt.json.zip",
-        tw: "tw.json",
-        topic_scaled: "topic_scaled.csv"
+        info: 'info.json',
+        meta: 'meta.csv.zip',
+        dt: 'dt.json.zip',
+        tw: 'tw.json',
+        topic_scaled: 'topic_scaled.csv'
 };
 
 var data = {
@@ -38,19 +38,19 @@ var valueByKeyword = [];
 function load() {
     
     load_data(data_folder[0] + files.topic_scaled, function(e, i) {
-        if (typeof i === "string") {
+        if (typeof i === 'string') {
             set_topic_scaled(i);
         } else {
-            console.log("Unable to load a file " + files.topic_scaled)
+            console.log('Unable to load a file ' + files.topic_scaled)
         }
     });
 
     load_data(data_folder[0] + files.tw, function(e, i) {
     
-        if (typeof i === "string") {
+        if (typeof i === 'string') {
             set_tw(i);
         } else {
-            console.log("Unable to load a file " + files.tw)
+            console.log('Unable to load a file ' + files.tw)
         }
     });
 };
@@ -58,19 +58,19 @@ function load() {
 function load_data(e, t) {
     var i, n;
     if (e === undefined) {
-        return t("target undefined", undefined)
+        return t('target undefined', undefined)
     }
-    i = e.replace(/^.*\//, "");
-    n = d3.select("#m__DATA__" + i.replace(/\..*$/, ""));
+    i = e.replace(/^.*\//, '');
+    n = d3.select('#m__DATA__' + i.replace(/\..*$/, ''));
     if (!n.empty()) {
         return t(undefined, JSON.parse(n.html()))
     }
     if (e.search(/\.zip$/) > 0) {
-        return d3.xhr(e).responseType("arraybuffer").get(function(e, n) {
+        return d3.xhr(e).responseType('arraybuffer').get(function(e, n) {
             var o, r;
             if (n && n.status === 200 && n.response.byteLength) {
                 o = new JSZip(n.response);
-                r = o.file(i.replace(/\.zip$/, "")).asText()
+                r = o.file(i.replace(/\.zip$/, '')).asText()
             }
             return t(e, r)
         })
@@ -84,7 +84,7 @@ function load_data(e, t) {
 function set_tw(e) {
     var tw_json;
     
-    if (typeof e !== "string") {
+    if (typeof e !== 'string') {
         return
     }
     tw_json = JSON.parse(e);
@@ -104,7 +104,7 @@ function set_tw(e) {
 
         var t = {
             idx: n,
-            name: "Topic " + (n + 1),
+            name: 'Topic ' + (n + 1),
             weight: v,
             alpha: tw_json.alpha[n],
             words: w,
@@ -116,15 +116,15 @@ function set_tw(e) {
     init();
     calculateWordClouds();
     
-};
+};  
 
 function set_topic_scaled(e) {
     var i;
-    if (typeof e !== "string") {
+    if (typeof e !== 'string') {
         return
     }
 
-    i = e.replace(/^\n*/, "").replace(/\n*$/, "\n");
+    i = e.replace(/^\n*/, '').replace(/\n*$/, '\n');
     data.topic_scaled = d3.csvParseRows(i, function(e) {
         return e.map(parseFloat)
     });
@@ -132,7 +132,7 @@ function set_topic_scaled(e) {
 
 function ticked() {
 
-    var svg = d3.select("svg");
+    var svg = d3.select('svg');
     var node = svg.selectAll('.node')
     
     if(gui_elements.scaled == false) {
@@ -145,8 +145,8 @@ function ticked() {
     //console.log(node.filter((l,i) => l.idx == 45).data()[0]);
 
     node.select('rect')
-    .attr("rx", d => d.r * d.borderRatio)
-    .attr("ry", d => d.r * d.borderRatio)
+    .attr('rx', d => d.r * d.borderRatio)
+    .attr('ry', d => d.r * d.borderRatio)
     .attr('width', d => d.r * 2)
     .attr('height', d => d.r * 2)
     .attr('x', d => d.r * -1)
@@ -158,7 +158,7 @@ function ticked() {
 function init() {
      if(data.tw == undefined) return;
     
-    var svg = d3.select("svg");
+    var svg = d3.select('svg');
     width = svg.node().clientWidth;
     height = +svg.node().clientHeight;
 
@@ -175,7 +175,7 @@ function init() {
             .force('collide', forceCollide)
             .force('x', d3.forceX(centerX).strength(strength))
             .force('y', d3.forceY(centerY).strength(strength))
-            .on("tick", ticked);
+            .on('tick', ticked);
 
     root = d3.hierarchy({ children: data.tw })
             .sum(function(d) { return d.alpha; });
@@ -186,7 +186,7 @@ function init() {
     
     data_nodes = pack(root).leaves().map(node => {
         const data = node.data;
-        //console.log(data.alpha + " " + node.r + " " + scaleRadius(data.alpha), data.words);
+        //console.log(data.alpha + ' ' + node.r + ' ' + scaleRadius(data.alpha), data.words);
         return {
             x: centerX + (node.x - centerX) * 3,
             y: centerY + (node.y - centerY) * 3,
@@ -211,20 +211,24 @@ function drawLegend() {
       .domain(dataDomain)
       .range([scaleColor(scaleValue(dataDomain[0])), scaleColor(scaleValue(dataDomain[1]))]);
 
-    svg.append("g")
-      .attr("class", "legend-color")
-      .attr("transform", "translate(" + [20, height - 120] + ")");
+    svg.append('g')
+      .attr('class', 'legend-color')
+      .attr('transform', 'translate(' + [20, height - 120] + ')');
     
-    svg.append("g")
-      .attr("class", 'legend-size')
-      .attr("transform", "translate(" + [100, height - 100] + ")")
+    svg.append('g')
+      .attr('class', 'legend-size')
+      .attr('transform', 'translate(' + [100, height - 100] + ')');
+
+    svg.append('g')
+      .attr('class', 'legend-search')
+      .attr('transform', 'translate(' + [200, height - 120] + ')');
 
     var steps
     var legendLinear = d3.legendColor()
-      .labelFormat(d3.format(".2f"))
+      .labelFormat(d3.format('.2f'))
       .cells(5)
       .labelOffset(10)
-      .title("Alpha Range")
+      .title('Alpha Range')
       .scale(colorScale);
       
 
@@ -239,10 +243,10 @@ function drawLegend() {
             .labelOffset(20)
             .labelAlign('end');
 
-    svg.select(".legend-color")
+    svg.select('.legend-color')
       .call(legendLinear);
 
-    svg.select(".legend-size")
+    svg.select('.legend-size')
       .call(legendSize);
 }
 
@@ -259,7 +263,7 @@ function setMappingScale() {
 
 function draw() {
     // based on the bubble chart example, https://naustud.io/tech-stack/
-    var svg = d3.select("svg");
+    var svg = d3.select('svg');
 
     var node = svg.selectAll('.node')
         .data(data_nodes)
@@ -286,8 +290,8 @@ function draw() {
 
     var rect = node.append('rect')
         .attr('id', d => d.idx)
-        .attr("rx", 0)
-        .attr("ry", 0)
+        .attr('rx', 0)
+        .attr('ry', 0)
         .attr('width', 0)
         .attr('height', 0)
         .style('fill', d => scaleColor(scaleValue(d.value)))
@@ -302,25 +306,14 @@ function draw() {
                     }
                 })
     
-    var arc = d3.arc();
-    node.append('path')
-        .classed('arc', true)
-        .attr('id', d => d.idx)
-        .attr('d', d => arc({
-            innerRadius: 0,
-            outerRadius: d.radius,
-            startAngle:0,
-            endAngle:0
-        })).style('fill', 'orange');
-
-    node.append("clipPath")
-        .attr("id", d => `clip-${d.idx}`)
-        .append("use")
-        .attr("xlink:href", d => `#${d.idx}`);
+    node.append('clipPath')
+        .attr('id', d => `clip-${d.idx}`)
+        .append('use')
+        .attr('xlink:href', d => `#${d.idx}`);
 
     node.append('text')
         .classed('topic_name', true)
-        .attr("clip-path", d => `url(#clip-${d.idx}`)
+        .attr('clip-path', d => `url(#clip-${d.idx}`)
         .selectAll('tspan')
         .data(d => d.name.split())
         .enter().append('tspan')
@@ -363,7 +356,7 @@ function draw() {
             //.classed('wordcloud-overlay__inner', true);
     
     wordCloudLayer.append('text')
-            //.attr("clip-path", d => `url(#clip-${d.idx}`)
+            //.attr('clip-path', d => `url(#clip-${d.idx}`)
             .attr('x', 0)
             .attr('y', (-centerY * 0.5) + 13 + 10)
             //.attr('fill', d3.rgb(255, 0, 0))
@@ -378,11 +371,11 @@ function draw() {
                     
                     data.wordCloud[d.idx].forEach(w => { 
                         layer.append('text')
-                            .style('font-size', w.size + "px")
-                            //.style("fill", color(w.size % 20))
+                            .style('font-size', w.size + 'px')
+                            //.style('fill', color(w.size % 20))
                             .style('cursor', 'default')
-                            .attr("transform", 
-                              "translate(" + [w.x, 20 + w.y] + ")rotate(" + w.rotate + ")")   
+                            .attr('transform', 
+                              'translate(' + [w.x, 20 + w.y] + ')rotate(' + w.rotate + ')')   
                             .text(w.text);
                     });
                 }
@@ -405,7 +398,7 @@ function draw() {
 
         simulation.alphaTarget(0.2).restart();
         d3.selectAll('.wordcloud-overlay').classed('hidden', true);
-        
+        d3.select(currentTarget).selectAll('.arc').classed('hidden', true);
 
         if (lastNode) {
             node.filter((d, i) => i === lastNode.index)
@@ -446,8 +439,7 @@ function draw() {
                     let $currentGroup = d3.select(currentTarget);
                     $currentGroup.select('.wordcloud-overlay')
                         .classed('hidden', false);
-                    $currentGroup.select('.topic_name').classed('hidden', true);
-                    $currentGroup.select('.arc').classed('hidden', true);
+                    $currentGroup.select('.topic_name').classed('hidden', true);      
             })
             .on('interrupt', () => {
                     //console.log('move interrupt', selectedNode);
@@ -460,7 +452,7 @@ function draw() {
     d3.select(document).on('click', () => {
         let target = d3.event.target;
 
-        if(focusedNode) {
+        if(target.nodeName == 'svg' && focusedNode) {
             simulation.alphaTarget(0.2).restart();
 
             d3.transition().duration(500).ease(d3.easePolyOut)
@@ -479,7 +471,7 @@ function draw() {
                 .on('end', () => {
 
                     d3.select(focusedTarget).select('.topic_name').classed('hidden', false);
-                    d3.select(focusedTarget).select('.arc').classed('hidden', false);
+                    d3.select(focusedTarget).selectAll('.arc').classed('hidden', false);
                     //d3.select(focusedNode).moveToBack();
                     focusedNode = null;
                     focusedTarget = null;
@@ -578,13 +570,13 @@ function addGui() {
                 var yScale = d3.scaleLinear().domain([height, 0]).range([height - o, o]);
                 
                 svg.call(d3.zoom().scaleExtent([1, 15])
-                                    .on("zoom", function() {
+                                    .on('zoom', function() {
                                     
                                     var transform = d3.event.transform;
                                     var scaledX, scaledY;
                                     
                                     nodes.transition().duration(1)
-                                        .attr("transform", d => {
+                                        .attr('transform', d => {
                                             scaledX = transform.applyX(xScale(d.x));
                                             scaledY = transform.applyY(yScale(d.y));
 
@@ -593,13 +585,13 @@ function addGui() {
                                 }));
 
             } else {
-                svg.on("mousedown.zoom", null);
-                svg.on("mousemove.zoom", null);
-                svg.on("dblclick.zoom", null);
-                svg.on("touchstart.zoom", null);
-                svg.on("wheel.zoom", null);
-                svg.on("mousewheel.zoom", null);
-                svg.on("MozMousePixelScroll.zoom", null);
+                svg.on('mousedown.zoom', null);
+                svg.on('mousemove.zoom', null);
+                svg.on('dblclick.zoom', null);
+                svg.on('touchstart.zoom', null);
+                svg.on('wheel.zoom', null);
+                svg.on('mousewheel.zoom', null);
+                svg.on('MozMousePixelScroll.zoom', null);
 
                 simulation.nodes(nodes.data());
                 simulation.alphaTarget(0.2).restart();
@@ -649,99 +641,138 @@ function addGui() {
 
     });
 
-    // function for searching a keyword to find what topics include the keyword 
-    // it 
-    gui.add(gui_elements, 'search a word').onFinishChange(keyword => {
-        let isKeywordEmpty = (keyword == '');
-        var result = [];
+    // findind what topic bubbles include keywords and showing as a form of pie charts over a bubble
+    gui.add(gui_elements, 'search a word').onFinishChange(text => {
+        if(data.searchWords == text) return;
         
-        coloringByKeyword = !isKeywordEmpty;
+        data.searchWords = text;
 
-        if(isKeywordEmpty == false) {
-            data.tw.forEach((d, i) => {
-            
-                let weight = d.weight;
-                result[i] = {idx: i, value: 0};
+        var result = [[],];
 
-                d.words.find(w => {
-
-                    if(w.word == keyword) {
-                        //console.log(i, w.weight/weight);
-                        result[i] = {idx: i, value: w.weight / weight};
-                    }
-                });
-            
-            });
-        }
-
-
-        valueByKeyword = result;
+        let isKeywordEmpty = (text == '' || text.replace(/\+/g, '') == '');
+        var keyword = text.split('+');
+        
+        var arc = d3.arc();
 
         var rect = svg.selectAll('.node rect[id]');
         var arcPath = svg.selectAll('.node path[id]');
-        var arc = d3.arc();
 
-        console.log(arcPath);
+        arcPath.remove();
 
-        //let scaleByKeyword = d3.scaleSqrt().domain([0, d3.max(result, d => +d.value)]).range([0, 80]);
-        let scaleByKeyword = d3.scaleSqrt().domain([0, 1]).range([0, 80]);
+        if(isKeywordEmpty == false) {
 
-        rect.transition().duration(1000).ease(d3.easeElasticOut)
-                .tween('circleSearch', (d) => {
-                    var src = d.r;
-                    // d.radius = isKeywordEmpty? scaleRadius(d.value) : scaleByKeyword(result[d.idx].value);
-                    d.radius = isKeywordEmpty? scaleRadius(d.value) : (result[d.idx].value > 0)? scaleRadius(d.value) : 0;
+            data.tw.forEach((d, i) => {
+                result[i] = [];
+                
+                
+                let weight = d.weight;
+                var found = [];
+                keyword.forEach((kw, ki) => {
 
-                    var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
-                    let i = d3.interpolateNumber(src, dst);
-
-                    return (t) => {
-                        d.r = i(t);
-                        if(d.r < 0) d.r = 0;
-                        simulation.force('collide', forceCollide);
-                    }
-                })
-                .on('end', (t) => {
+                    if(kw == '') return;
                     
-                    simulation.alphaTarget(0);
-                                       
-                })
-                .on('interrupt', () => {
+                    var v = {word: kw, value: 0};
                     
-                    simulation.alphaTarget(0);
-                });
-
-        arcPath.transition().duration(1000)
-                    .attrTween('d', (d) => {
-                        let newAngle = isKeywordEmpty? 0 : 2 * Math.PI * result[d.idx].value;
-                        let i = d3.interpolateNumber(d.endAngle, newAngle);
-
-                        return (t) => {
-                            d.endAngle = i(t);
-                            
-                            return arc({
-                                  innerRadius: 0,
-                                  outerRadius: d.radius,
-                                  startAngle: 0,
-                                  endAngle: d.endAngle
-                                });
+                    d.words.find(w => {
+                        if(w.word == kw.trim()) {
+                            v.value = w.weight/weight;
                         }
                     });
+                    
+                    if(v.value > 0) 
+                        found.push(v);
+                });
 
-        simulation.alphaTarget(0.2).restart();
+                if(found.length == keyword.length)
+                    result[i] = found;
+            });
+        } 
+    
+        rect.transition().duration(1000).ease(d3.easeElasticOut)
+            .tween('circleSearch', (d) => {
+                var src = d.r;
 
-        //result.sort(function(a, b) { return b.value - a.value });
+                d.radius = (isKeywordEmpty || result[d.idx].length > 0)? scaleRadius(d.value) : 0;
+                console
+                var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
+                let i = d3.interpolateNumber(src, dst);
 
-        //console.log(result);
-
-        // f(typeof data.alphaRange == 'undefined')
-        // data.alphaRange = [d3.min(data.tw, d => +d.alpha), d3.max(data.tw, d => +d.alpha)];
-
-        // var isAbsoluteValueRange = gui_elements['absolute range'];
-
-        // dataDomain = isAbsoluteValueRange? [0, 1] : data.alphaRange;
-        // scaleRadius = d3.scaleSqrt().domain(dataDomain).range([20, 80]);
-        // scaleValue = d3.scaleSqrt().domain(dataDomain).range([0, 0.7]);
+                //hide a clicked bubble if it has not any keyword
+                //
+                return (t) => {
+                    d.r = i(t);
+                    if(d.r < 0) d.r = 0;
+                    simulation.force('collide', forceCollide);
+                }
+            })
+            .on('end', (t) => {
+                
+                simulation.alphaTarget(0);
+                                   
+            })
+            .on('interrupt', () => {
+                
+                simulation.alphaTarget(0);
+            });
         
+
+        let color = d3.scaleOrdinal().domain(keyword)
+                            .range(keyword.map((val, i) => 
+                                d3.interpolateYlGnBu(1 - (i / (keyword.length)))
+                            ));
+
+        var searchLegend = d3.legendColor().labelOffset(10).title('Search Result').scale(color)
+        
+        svg.select('.legend-search').call(searchLegend);
+        svg.select('.legend-search').classed('hidden', isKeywordEmpty);
+
+        var nodes = svg.selectAll('.node')
+
+        result.forEach((v, i) => {
+
+            var start = 0;
+            var node = nodes.filter(n => n.idx == i);
+
+            v.forEach((kw, ki) => {
+                
+                var end = start + 2 * Math.PI * kw.value;
+
+                node.append('path')
+                .classed('arc', true)
+                .classed('hidden', d => (focusedNode && focusedNode.idx == d.idx))
+                .attr('id', d => d.idx + kw.word + ki)
+                .attr('d', function(d) {
+
+                    return arc({
+                        innerRadius: 0,
+                        outerRadius: scaleRadius(d.value),
+                        startAngle:start,
+                        endAngle:end
+                    }) 
+                })
+                .attr('fill', d => color(ki));
+
+                start = end;  
+            })
+        }) 
+
+        // arcPath.transition().duration(1000)
+        //         .attrTween('d', (d) => {
+        //             let newAngle = isKeywordEmpty? 0 : 2 * Math.PI * result[0][d.idx].value;
+        //             let i = d3.interpolateNumber(d.endAngle, newAngle);
+
+        //             return (t) => {
+        //                 d.endAngle = i(t);
+                        
+        //                 return arc({
+        //                       innerRadius: 0,
+        //                       outerRadius: d.radius,
+        //                       startAngle: 0,
+        //                       endAngle: d.endAngle
+        //                     });
+        //             }
+        //         });
+        
+        simulation.alphaTarget(0.2).restart();        
     });
 }
