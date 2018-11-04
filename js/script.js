@@ -13,7 +13,7 @@ var data = {
 var gui_elements = {
         'absolute range': false,
         'scaled': false,
-        'search a word': ''
+        'search for words': ''
 };
 
 var simulation;
@@ -413,6 +413,7 @@ function draw() {
                 })
                 .on('end', () => {
                     d3.select(lastTarget).select('.topic_name').classed('hidden', false);
+                    d3.select(lastTarget).selectAll('.arc').classed('hidden', false);
                 })
                 .on('interrupt', () => {
                     lastNode.r = lastNode.radius;
@@ -437,8 +438,7 @@ function draw() {
             .on('end', () => {
                     simulation.alphaTarget(0);
                     let $currentGroup = d3.select(currentTarget);
-                    $currentGroup.select('.wordcloud-overlay')
-                        .classed('hidden', false);
+                    $currentGroup.select('.wordcloud-overlay').classed('hidden', false);
                     $currentGroup.select('.topic_name').classed('hidden', true);      
             })
             .on('interrupt', () => {
@@ -642,7 +642,7 @@ function addGui() {
     });
 
     // findind what topic bubbles include keywords and showing as a form of pie charts over a bubble
-    gui.add(gui_elements, 'search a word').onFinishChange(text => {
+    gui.add(gui_elements, 'search for words').onFinishChange(text => {
         if(data.searchWords == text) return;
         
         data.searchWords = text;
