@@ -35,6 +35,7 @@ var scaleValue;
 
 var coloringByKeyword = false;
 var valueByKeyword = [];
+var isMSIE = false; // check if a web browser is IE
 
 function load() {
     
@@ -157,8 +158,11 @@ function ticked() {
 }
 
 function init() {
-     if(data.tw == undefined) return;
+    if(data.tw == undefined) return;
     
+    var ua = window.navigator.userAgent;
+    isMSIE = (ua.indexOf("MSIE ") > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./));
+
     var svg = d3.select('svg');
     width = svg.node().clientWidth;
     height = +svg.node().clientHeight;
@@ -694,9 +698,14 @@ function addGui() {
                 var src = d.r;
 
                 d.radius = (isKeywordEmpty || result[d.idx].length > 0)? scaleRadius(d.value) : 0;
-                console
+                
                 var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
                 let i = d3.interpolateNumber(src, dst);
+
+                // due to that IE does not support clipPath
+                if(isMSIE) { 
+                    d3.select(this.parentNode).select('.topic_name').classed('hidden', (d.radius == 0));
+                }
 
                 //hide a clicked bubble if it has not any keyword
                 //
