@@ -674,14 +674,14 @@ function addGui() {
                     
                     var v = {word: kw, value: 0};
                     
-                    d.words.find(function(w) {
-                        if(w.word == kw.trim()) {
-                            v.value = w.weight/weight;
-                        }
+                    let r = d.words.filter(function(w) {
+                        return (w.word == kw.trim());
                     });
                     
-                    if(v.value > 0) 
+                    if(r.length > 0) {
+                        v.value = r[0].weight/weight;
                         found.push(v);
+                    }
                 });
 
                 if(found.length == keyword.length)
