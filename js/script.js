@@ -1,4 +1,5 @@
 var data_folder = ['data/']
+//var data_folder = ['data/us-newspapers-humanities-250/']
 var files = {
         info: 'info.json',
         meta: 'meta.csv.zip',
@@ -20,7 +21,7 @@ var simulation;
 var centerX, centerY;
 var width, height;
 
-let forceCollide = d3.forceCollide(d => d.r + 1);
+let forceCollide = d3.forceCollide(function(d) { return d.r + 1; });
 var init_nodes;
 let scaleColor = d3.scaleSequential(d3.interpolateReds); 
 var pack;
@@ -136,7 +137,7 @@ function ticked() {
     var node = svg.selectAll('.node')
     
     if(gui_elements.scaled == false) {
-        node.attr('transform', d => `translate(${d.x},${d.y})`);
+        node.attr('transform', function(d) { return `translate(${d.x},${d.y})`; });
 
     } else {
        
@@ -145,14 +146,14 @@ function ticked() {
     //console.log(node.filter((l,i) => l.idx == 45).data()[0]);
 
     node.select('rect')
-    .attr('rx', d => d.r * d.borderRatio)
-    .attr('ry', d => d.r * d.borderRatio)
-    .attr('width', d => d.r * 2)
-    .attr('height', d => d.r * 2)
-    .attr('x', d => d.r * -1)
-    .attr('y', d => d.r * -1)
-    .style('fill', d => scaleColor(scaleValue(d.value)));
-    // .style('fill', d => scaleColor(scaleValue(coloringByKeyword? valueByKeyword[d.idx].value : d.value)));
+    .attr('rx', function(d) { return d.r * d.borderRatio; })
+    .attr('ry', function(d) { return d.r * d.borderRatio; })
+    .attr('width', function(d) { return d.r * 2; })
+    .attr('height', function(d) { return d.r * 2; })
+    .attr('x', function(d) { return d.r * -1; })
+    .attr('y', function(d) { return d.r * -1; })
+    .style('fill', function(d) { return scaleColor(scaleValue(d.value)); });
+    // .style('fill', function(d) { return scaleColor(scaleValue(coloringByKeyword? valueByKeyword[d.idx].value : d.value)));
 }
 
 function init() {
@@ -182,9 +183,9 @@ function init() {
 
     setMappingScale();
 
-    pack.radius(d => scaleRadius(d.value));
+    pack.radius(function(d) { return scaleRadius(d.value); });
     
-    data_nodes = pack(root).leaves().map(node => {
+    data_nodes = pack(root).leaves().map(function(node) {
         const data = node.data;
         //console.log(data.alpha + ' ' + node.r + ' ' + scaleRadius(data.alpha), data.words);
         return {
@@ -252,7 +253,7 @@ function drawLegend() {
 
 function setMappingScale() {
     if(typeof data.alphaRange == 'undefined')
-        data.alphaRange = [d3.min(data.tw, d => +d.alpha), d3.max(data.tw, d => +d.alpha)];
+        data.alphaRange = [d3.min(data.tw, function(d) { return +d.alpha; }), d3.max(data.tw, function(d) { return +d.alpha; })];
 
     var isAbsoluteValueRange = gui_elements['absolute range'];
 
@@ -270,17 +271,17 @@ function draw() {
         .enter().append('g')
         .attr('class', 'node')
         .call(d3.drag()
-                .on('start', (d) => {
+                .on('start', function(d) {
                     if(gui_elements.scaled) return;
                     if (!d3.event.active) simulation.alphaTarget(0.2).restart();
                     d.fx = d.x;
                     d.fy = d.y;
                 })
-                .on('drag', (d) => {
+                .on('drag', function(d) {
                     d.fx = d3.event.x;
                     d.fy = d3.event.y;
                 })
-                .on('end', (d) => {
+                .on('end', function(d) {
                     if (!d3.event.active) simulation.alphaTarget(0);
                     d.fx = null;
                     d.fy = null;
@@ -289,38 +290,38 @@ function draw() {
     simulation.nodes(data_nodes);
 
     var rect = node.append('rect')
-        .attr('id', d => d.idx)
+        .attr('id', function(d) { return d.idx; })
         .attr('rx', 0)
         .attr('ry', 0)
         .attr('width', 0)
         .attr('height', 0)
-        .style('fill', d => scaleColor(scaleValue(d.value)))
+        .style('fill', function(d) { return scaleColor(scaleValue(d.value)); })
         .style('cursor', 'pointer')
         .transition().duration(2000).ease(d3.easeElasticOut)
-                .tween('circleIn', (d) => {
+                .tween('circleIn', function(d) {
                     let i = d3.interpolateNumber(0, d.radius);
 
-                    return (t) => {
+                    return function(t) {
                         d.r = i(t);
                         simulation.force('collide', forceCollide);
                     }
                 })
     
     node.append('clipPath')
-        .attr('id', d => `clip-${d.idx}`)
+        .attr('id', function(d) { return `clip-${d.idx}`; })
         .append('use')
-        .attr('xlink:href', d => `#${d.idx}`);
+        .attr('xlink:href', function(d) { return `#${d.idx}`; });
 
     node.append('text')
         .classed('topic_name', true)
-        .attr('clip-path', d => `url(#clip-${d.idx}`)
+        .attr('clip-path', function(d) { return `url(#clip-${d.idx}`; })
         .selectAll('tspan')
-        .data(d => d.name.split())
+        .data(function(d) { return d.name.split(); })
         .enter().append('tspan')
             .attr('x', 0)
-            .attr('y', (d, i, nodes) => (13 + (i - nodes.length / 2 - 0.5) * 10))
+            .attr('y', function(d, i, nodes) { return (13 + (i - nodes.length / 2 - 0.5) * 10); })
             .style('cursor', 'pointer')
-            .text(name => name);
+            .text(function(name) { return name; });
 
     
     d3.selection.prototype.moveToFront = function() {  
@@ -356,20 +357,20 @@ function draw() {
             //.classed('wordcloud-overlay__inner', true);
     
     wordCloudLayer.append('text')
-            //.attr('clip-path', d => `url(#clip-${d.idx}`)
+            //.attr('clip-path', function(d) { return `url(#clip-${d.idx}`)
             .attr('x', 0)
             .attr('y', (-centerY * 0.5) + 13 + 10)
             //.attr('fill', d3.rgb(255, 0, 0))
             //.attr('background-color', 'black')
             .attr('font-weight', 'bold')
             .style('cursor', 'default')
-            .text(d => {
+            .text(function(d) {
 
                 if(typeof data.wordCloud[d.idx] != 'undefined') {
 
-                    var layer = wordCloudLayer.filter((l,i) => l.idx == d.idx);
+                    var layer = wordCloudLayer.filter(function(l,i) { return (l.idx == d.idx); })
                     
-                    data.wordCloud[d.idx].forEach(w => { 
+                    data.wordCloud[d.idx].forEach(function(w) { 
                         layer.append('text')
                             .style('font-size', w.size + 'px')
                             //.style('fill', color(w.size % 20))
@@ -383,7 +384,7 @@ function draw() {
                 return d.name;
             });
     
-    node.on('click', (selectedNode) => {
+    node.on('click', function(selectedNode) {
         d3.event.stopPropagation();
         
         let currentTarget = d3.event.currentTarget;
@@ -401,28 +402,28 @@ function draw() {
         d3.select(currentTarget).selectAll('.arc').classed('hidden', true);
 
         if (lastNode) {
-            node.filter((d, i) => i === lastNode.index)
+            node.filter(function(d, i) { return (i === lastNode.index); })
                 .transition().duration(500).ease(d3.easePolyOut)
-                .tween('rectToCircle', () => {
+                .tween('rectToCircle', function() {
                     let irl = d3.interpolateNumber(lastNode.r, lastNode.radius);
                     let irlBorder = d3.interpolateNumber(lastNode.borderRatio, 1);
-                    return (t) => {
+                    return function(t) {
                         lastNode.r = irl(t);
                         lastNode.borderRatio = irlBorder(t);
                     }
                 })
-                .on('end', () => {
+                .on('end', function() {
                     d3.select(lastTarget).select('.topic_name').classed('hidden', false);
                     d3.select(lastTarget).selectAll('.arc').classed('hidden', false);
                 })
-                .on('interrupt', () => {
+                .on('interrupt', function() {
                     lastNode.r = lastNode.radius;
                     lastNode.borderRatio = 1;
                 });
         }
 
         d3.transition().duration(1000).ease(d3.easePolyOut)
-            .tween('circleToRect', () => {
+            .tween('circleToRect', function() {
                 d3.select(currentTarget).moveToFront();
 
                 let ir = d3.interpolateNumber(selectedNode.r, centerY * 0.5);
@@ -435,13 +436,13 @@ function draw() {
                     simulation.force('collide', forceCollide);
                 };
             })
-            .on('end', () => {
+            .on('end', function() {
                     simulation.alphaTarget(0);
                     let $currentGroup = d3.select(currentTarget);
                     $currentGroup.select('.wordcloud-overlay').classed('hidden', false);
                     $currentGroup.select('.topic_name').classed('hidden', true);      
             })
-            .on('interrupt', () => {
+            .on('interrupt', function() {
                     //console.log('move interrupt', selectedNode);
                     // selectedNode.fx = null;
                     // selectedNode.fy = null;
@@ -449,26 +450,26 @@ function draw() {
             });
         });
 
-    d3.select(document).on('click', () => {
+    d3.select(document).on('click', function() {
         let target = d3.event.target;
 
         if(target.nodeName == 'svg' && focusedNode) {
             simulation.alphaTarget(0.2).restart();
 
             d3.transition().duration(500).ease(d3.easePolyOut)
-                .tween('rectToCircle', function () {
+                .tween('rectToCircle', function() {
                     //console.log('tweenMoveOut', focusedNode);
                     let ir = d3.interpolateNumber(focusedNode.r, focusedNode.radius);
                     let irlBorder = d3.interpolateNumber(focusedNode.borderRatio, 1);
                     
-                    return function (t) {
+                    return function(t) {
                         focusedNode.r = ir(t);
                         focusedNode.borderRatio = irlBorder(t);
                         
                         simulation.force('collide', forceCollide);
                     };
                 })
-                .on('end', () => {
+                .on('end', function(){
 
                     d3.select(focusedTarget).select('.topic_name').classed('hidden', false);
                     d3.select(focusedTarget).selectAll('.arc').classed('hidden', false);
@@ -477,7 +478,7 @@ function draw() {
                     focusedTarget = null;
                     simulation.alphaTarget(0);
                 })
-                .on('interrupt', () => {
+                .on('interrupt', function() {
                     simulation.alphaTarget(0);
                 });
 
@@ -498,11 +499,11 @@ function calculateWordClouds() {
 
     let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 25]);
 
-    data.tw.forEach((d, i) => {
+    data.tw.forEach(function(d, i) {
         
         var maxWeight = d.words[0].weight;
         //done[i] = false;
-        var words_frequency = d.words.slice(0, 50).map(w => {
+        var words_frequency = d.words.slice(0, 50).map(function(w) {
             return {
                 text: w.word,
                 size: Math.floor(fontSizeScale(w.weight / maxWeight))
@@ -514,8 +515,8 @@ function calculateWordClouds() {
                 .words(words_frequency)
                 .padding(5)
                 .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
-                .fontSize(w => w.size)
-                .on('end', (words) => {
+                .fontSize(function(w) { return w.size; })
+                .on('end', function(words) {
                     data.wordCloud[i] = words;
                     task--;
 
@@ -535,7 +536,7 @@ function addGui() {
     var scaled = gui.add(gui_elements, 'scaled');
 
     if(typeof data.topic_scaled != 'undefined' ) {
-        scaled.onChange(() => {
+        scaled.onChange(function() {
 
             var nodes = svg.selectAll('.node')
 
@@ -544,21 +545,21 @@ function addGui() {
                 simulation.stop();
                 simulation.nodes([]);
 
-                data.topic_scaled.forEach((scaled, i) => {
+                data.topic_scaled.forEach(function(scaled, i) {
 
-                    var node = nodes.filter(l => l.idx == i);
+                    var node = nodes.filter(function(l) { return (l.idx == i);} )
                         node.transition().duration(1000)
-                            .attr('transform', d => {
+                            .attr('transform', function(d) {
                                  return 'translate(' + [centerX + width * scaled[0], centerY - height * scaled[1]] + ')'
                             })
-                            .on('end', d => {
+                            .on('end', function(d) {
                                 d.x = centerX + width * scaled[0];
                                 d.y = centerY - height * scaled[1];
                             })
-                            .on('interrupt', d => {
+                            .on('interrupt', function(d) {
                                 d.x = centerX + width * scaled[0];
                                 d.y = centerY - height * scaled[1];     
-                            });;
+                            });
                 });
 
                 var aspect = width / height;
@@ -576,7 +577,7 @@ function addGui() {
                                     var scaledX, scaledY;
                                     
                                     nodes.transition().duration(1)
-                                        .attr('transform', d => {
+                                        .attr('transform', function(d) {
                                             scaledX = transform.applyX(xScale(d.x));
                                             scaledY = transform.applyY(yScale(d.y));
 
@@ -603,7 +604,7 @@ function addGui() {
     }
 
 
-    gui.add(gui_elements, 'absolute range').onChange(() => {
+    gui.add(gui_elements, 'absolute range').onChange(function() {
 
         setMappingScale();
         svg.select('.legend-color').remove();
@@ -616,25 +617,25 @@ function addGui() {
         simulation.alphaTarget(0.2).restart();
 
         rect.transition().duration(1000).ease(d3.easeElasticOut)
-                .tween('circleResize', (d) => {
+                .tween('circleResize', function(d) {
                     var src = d.r;
                     d.radius = scaleRadius(d.value);
                     var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
                     
                     let i = d3.interpolateNumber(src, dst);
 
-                    return (t) => {
+                    return function(t) {
 
                         d.r = i(t);
                         simulation.force('collide', forceCollide);
                     }
                 })
-                .on('end', (t) => {
+                .on('end', function(t) {
                     
                     simulation.alphaTarget(0);
                                        
                 })
-                .on('interrupt', () => {
+                .on('interrupt', function() {
                     
                     simulation.alphaTarget(0);
                 });
@@ -642,7 +643,7 @@ function addGui() {
     });
 
     // findind what topic bubbles include keywords and showing as a form of pie charts over a bubble
-    gui.add(gui_elements, 'search for words').onFinishChange(text => {
+    gui.add(gui_elements, 'search for words').onFinishChange(function(text) {
         if(data.searchWords == text) return;
         
         data.searchWords = text;
@@ -661,19 +662,19 @@ function addGui() {
 
         if(isKeywordEmpty == false) {
 
-            data.tw.forEach((d, i) => {
+            data.tw.forEach(function(d, i) {
                 result[i] = [];
                 
                 
                 let weight = d.weight;
                 var found = [];
-                keyword.forEach((kw, ki) => {
+                keyword.forEach(function(kw, ki) {
 
                     if(kw == '') return;
                     
                     var v = {word: kw, value: 0};
                     
-                    d.words.find(w => {
+                    d.words.find(function(w) {
                         if(w.word == kw.trim()) {
                             v.value = w.weight/weight;
                         }
@@ -689,7 +690,7 @@ function addGui() {
         } 
     
         rect.transition().duration(1000).ease(d3.easeElasticOut)
-            .tween('circleSearch', (d) => {
+            .tween('circleSearch', function(d) {
                 var src = d.r;
 
                 d.radius = (isKeywordEmpty || result[d.idx].length > 0)? scaleRadius(d.value) : 0;
@@ -699,27 +700,27 @@ function addGui() {
 
                 //hide a clicked bubble if it has not any keyword
                 //
-                return (t) => {
+                return function(t) {
                     d.r = i(t);
                     if(d.r < 0) d.r = 0;
                     simulation.force('collide', forceCollide);
                 }
             })
-            .on('end', (t) => {
+            .on('end', function(t) {
                 
                 simulation.alphaTarget(0);
                                    
             })
-            .on('interrupt', () => {
+            .on('interrupt', function() {
                 
                 simulation.alphaTarget(0);
             });
         
 
         let color = d3.scaleOrdinal().domain(keyword)
-                            .range(keyword.map((val, i) => 
-                                d3.interpolateYlGnBu(1 - (i / (keyword.length)))
-                            ));
+                            .range(keyword.map(function(val, i) {
+                                return d3.interpolateYlGnBu(1 - (i / (keyword.length)));
+                            }));
 
         var searchLegend = d3.legendColor().labelOffset(10).title('Search Result').scale(color)
         
@@ -728,19 +729,19 @@ function addGui() {
 
         var nodes = svg.selectAll('.node')
 
-        result.forEach((v, i) => {
+        result.forEach(function(v, i) {
 
             var start = 0;
-            var node = nodes.filter(n => n.idx == i);
+            var node = nodes.filter(function(n) { return (n.idx == i); });
 
-            v.forEach((kw, ki) => {
+            v.forEach(function(kw, ki) {
                 
                 var end = start + 2 * Math.PI * kw.value;
 
                 node.append('path')
                 .classed('arc', true)
-                .classed('hidden', d => (focusedNode && focusedNode.idx == d.idx))
-                .attr('id', d => d.idx + kw.word + ki)
+                .classed('hidden', function(d) { return (focusedNode && focusedNode.idx == d.idx); })
+                .attr('id', function(d) { return d.idx + kw.word + ki; })
                 .attr('d', function(d) {
 
                     return arc({
@@ -750,7 +751,7 @@ function addGui() {
                         endAngle:end
                     }) 
                 })
-                .attr('fill', d => color(ki));
+                .attr('fill', function(d) { return color(ki); });
 
                 start = end;  
             })
