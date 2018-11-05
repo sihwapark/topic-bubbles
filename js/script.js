@@ -137,7 +137,7 @@ function ticked() {
     var node = svg.selectAll('.node')
     
     if(gui_elements.scaled == false) {
-        node.attr('transform', function(d) { return `translate(${d.x},${d.y})`; });
+        node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
 
     } else {
        
@@ -308,13 +308,13 @@ function draw() {
                 })
     
     node.append('clipPath')
-        .attr('id', function(d) { return `clip-${d.idx}`; })
+        .attr('id', function(d) { return "clip-" + d.idx; })
         .append('use')
-        .attr('xlink:href', function(d) { return `#${d.idx}`; });
+        .attr('xlink:href', function(d) { return "#" + d.idx; });
 
     node.append('text')
         .classed('topic_name', true)
-        .attr('clip-path', function(d) { return `url(#clip-${d.idx}`; })
+        .attr('clip-path', function(d) { return "url(#clip-" + d.idx; })
         .selectAll('tspan')
         .data(function(d) { return d.name.split(); })
         .enter().append('tspan')
