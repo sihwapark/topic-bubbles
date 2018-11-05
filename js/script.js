@@ -116,8 +116,8 @@ function set_tw(e) {
     }); 
 
     init();
-    calculateWordClouds();
-    
+    draw();
+    //calculateWordClouds();
 };  
 
 function set_topic_scaled(e) {
@@ -206,6 +206,8 @@ function init() {
             endAngle: 0
         }
     });
+
+    data.wordCloud = new Array();
 }
 
 function drawLegend() {
@@ -369,33 +371,55 @@ function draw() {
             .attr('font-weight', 'bold')
             .style('cursor', 'default')
             .text(function(d) {
-
-                if(typeof data.wordCloud[d.idx] != 'undefined') {
-
-                    var layer = wordCloudLayer.filter(function(l,i) { return (l.idx == d.idx); })
-                    
-                    data.wordCloud[d.idx].forEach(function(w) { 
-                        layer.append('text')
-                            .style('font-size', w.size + 'px')
-                            //.style('fill', color(w.size % 20))
-                            .style('cursor', 'default')
-                            .attr('transform', 
-                              'translate(' + [w.x, 20 + w.y] + ')rotate(' + w.rotate + ')')   
-                            .text(w.text);
-                    });
-                }
-
                 return d.name;
             });
     
-    node.on('click', function(selectedNode) {
+    node.on('click', function(selectedNode) {   
+        if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
+            //console.log(selectedNode.idx + ' word cloud layout started');
+
+            let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 25]);
+            var maxWeight = selectedNode.words[0].weight;
+            var words_frequency = selectedNode.words.slice(0, 50).map(function(w) {
+                return {
+                    text: w.word,
+                    size: Math.floor(fontSizeScale(w.weight / maxWeight))
+                }
+            });
+
+            d3.layout.cloud().size([centerY - 10, centerY - 50])
+                    .timeInterval(10)
+                    .words(words_frequency)
+                    .padding(5)
+                    .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
+                    .fontSize(function(w) { return w.size; })
+                    .on('end', function(words) {
+                        data.wordCloud[selectedNode.idx] = words;
+                        
+                        //console.log(selectedNode.idx + ' word cloud layout ended');
+
+                        var layer = wordCloudLayer.filter(function(l,i) { return (l.idx == selectedNode.idx); })
+                    
+                        data.wordCloud[selectedNode.idx].forEach(function(w) { 
+                            layer.append('text')
+                                .style('font-size', w.size + 'px')
+                                //.style('fill', color(w.size % 20))
+                                .style('cursor', 'default')
+                                .attr('transform', 
+                                  'translate(' + [w.x, 20 + w.y] + ')rotate(' + w.rotate + ')')   
+                                .text(w.text);
+                        });
+                    })
+                    .start();
+        }
+
         d3.event.stopPropagation();
         
         let currentTarget = d3.event.currentTarget;
-            if (selectedNode === focusedNode) {
-                // no focusedNode or same focused node is clicked
-                return;
-            }
+        if (selectedNode === focusedNode) {
+            // no focusedNode or same focused node is clicked
+            return;
+        }
         let lastNode = focusedNode;
         let lastTarget = focusedTarget;
         focusedNode = selectedNode;
@@ -504,7 +528,7 @@ function calculateWordClouds() {
     let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 25]);
 
     data.tw.forEach(function(d, i) {
-        
+       
         var maxWeight = d.words[0].weight;
         //done[i] = false;
         var words_frequency = d.words.slice(0, 50).map(function(w) {
@@ -524,8 +548,8 @@ function calculateWordClouds() {
                     data.wordCloud[i] = words;
                     task--;
 
-                    if(task == 0)
-                        draw();
+                   // if(task == 0)
+                        //draw();
                 })
                 .start();
 
