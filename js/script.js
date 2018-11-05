@@ -672,6 +672,8 @@ function addGui() {
 
     // findind what topic bubbles include keywords and showing as a form of pie charts over a bubble
     gui.add(gui_elements, 'search for words').onFinishChange(function(text) {
+        text = text.toLowerCase();
+        
         if(data.searchWords == text) return;
         
         data.searchWords = text;
