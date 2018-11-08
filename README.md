@@ -1,6 +1,6 @@
 # Bubble Chart Visualization of Topic Models for the WE1S project
 
-As a part of the [WhatEvery1Says project(WE1S)](https://we1s.ucsb.edu), this visualization project generates an interactive bubble chart of topic models by using [D3.js](https://d3js.org/). Based on the experience gained from the use of  [the dfr-browser](https://agoldst.github.io/dfr-browser/), a simple topic model browser, it aims to present more intuitve and interative topic model visualization.
+As a part of the [WhatEvery1Says project(WE1S)](https://we1s.ucsb.edu), this visualization project generates an interactive bubble chart of topic models by using [D3.js](https://d3js.org/). Based on the experience gained from the use of  [the dfr-browser](https://agoldst.github.io/dfr-browser/), a simple topic model browser, it aims to present more intuitive and interactive topic model visualization.
 
 ![alt text](img/screenshot.png "Logo Title Text 1")
 

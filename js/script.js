@@ -1,5 +1,5 @@
 var data_folder = ['data/']
-//var data_folder = ['data/us-newspapers-humanities-250/']
+//var data_folder = ['data/us_canada_humanities_2017/']
 var files = {
         info: 'info.json',
         meta: 'meta.csv.zip',
