@@ -272,7 +272,17 @@ function draw() {
     // based on the bubble chart example, https://naustud.io/tech-stack/
     var svg = d3.select('svg');
 
-    var node = svg.selectAll('.node')
+    svg.style('cursor', 'move');
+    var g = svg.append('g');
+
+    svg.call(d3.zoom()
+                .on('zoom', function() {
+                    var transform = d3.event.transform;
+                    g.attr("transform", transform);
+                }));
+
+
+    var node = g.selectAll('.node')
         .data(data_nodes)
         .enter().append('g')
         .attr('class', 'node')
@@ -624,6 +634,15 @@ function addGui() {
 
                 simulation.nodes(nodes.data());
                 simulation.alphaTarget(0.2).restart();
+
+                var g = svg.select('g');
+
+                svg.call(d3.zoom()
+                            .on('zoom', function() {
+                                var transform = d3.event.transform;
+                                g.attr("transform", transform);
+                        }));
+
                 
             }
         });
