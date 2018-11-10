@@ -36,6 +36,7 @@ var scaleValue;
 var coloringByKeyword = false;
 var valueByKeyword = [];
 var isMSIE = false; // check if a web browser is IE
+var isFF = false; // check if a web browser is Firefox
 
 function load() {
     
@@ -162,10 +163,12 @@ function init() {
     
     var ua = window.navigator.userAgent;
     isMSIE = (ua.indexOf("MSIE ") > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./));
+    isFF = (ua.indexOf("Firefox") > 0);
 
     var svg = d3.select('svg');
-    width = svg.node().clientWidth;
-    height = +svg.node().clientHeight;
+    var svgClientNode = (isFF)? svg.node().parentNode : svg.node();
+    width = svgClientNode.clientWidth;
+    height = svgClientNode.clientHeight;
 
     centerX = width * 0.5;
     centerY = height * 0.5;
@@ -275,7 +278,7 @@ function draw() {
     svg.style('cursor', 'move');
     var g = svg.append('g');
 
-    svg.call(d3.zoom()
+    svg.call(d3.zoom().scaleExtent([0.3, 1])
                 .on('zoom', function() {
                     var transform = d3.event.transform;
                     g.attr("transform", transform);
