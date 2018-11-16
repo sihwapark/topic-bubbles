@@ -65,7 +65,7 @@ A force simulation with the use of `d3.forceSimulation` is applied in the backgr
 ### Used Libraries
 
 - [dat.GUI](https://github.com/dataarts/dat.gui)
-- [d3-scale-chromatic](https://github.com/d3/d3-scale-chromatic) 
+- [D3.js](https://d3js.org/)
 - [d3-legend](http://d3-legend.susielu.com/)
 - [d3-cloud](https://github.com/jasondavies/d3-cloud)
   - [An example](https://bl.ocks.org/abrahamdu/e1481e86dd4e9d553cc2d7d359b91e68) for d3.js v4 or above

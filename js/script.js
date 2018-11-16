@@ -640,7 +640,7 @@ function addGui() {
 
                 var g = svg.select('g');
 
-                svg.call(d3.zoom()
+                svg.call(d3.zoom().scaleExtent([0.3, 1])
                             .on('zoom', function() {
                                 var transform = d3.event.transform;
                                 g.attr("transform", transform);
