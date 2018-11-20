@@ -14,7 +14,7 @@ var data = {
 var gui_elements = {
         'absolute range': false,
         'scaled': false,
-        'search for words': ''
+        'search for words': 'use \'+\' for multiple keywords'
 };
 
 var simulation;
@@ -37,6 +37,9 @@ var coloringByKeyword = false;
 var valueByKeyword = [];
 var isMSIE = false; // check if a web browser is IE
 var isFF = false; // check if a web browser is Firefox
+
+var lastTransform;
+var zoom;
 
 function load() {
     
@@ -162,8 +165,8 @@ function init() {
     if(data.tw == undefined) return;
     
     var ua = window.navigator.userAgent;
-    isMSIE = (ua.indexOf("MSIE ") > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./));
-    isFF = (ua.indexOf("Firefox") > 0);
+    isMSIE = (ua.indexOf('MSIE ') > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./));
+    isFF = (ua.indexOf('Firefox') > 0);
 
     var svg = d3.select('svg');
     var svgClientNode = (isFF)? svg.node().parentNode : svg.node();
@@ -277,13 +280,18 @@ function draw() {
 
     svg.style('cursor', 'move');
     var g = svg.append('g');
+    
+    lastTransform = g.attr('transform');
 
-    svg.call(d3.zoom().scaleExtent([0.3, 1])
-                .on('zoom', function() {
-                    var transform = d3.event.transform;
-                    g.attr("transform", transform);
-                }));
-
+    zoom = d3.zoom();
+    zoom.scaleExtent([0.3, 1])
+        .on('zoom', function() {
+            console.log('normal ' + d3.event.transform);
+            var transform = d3.event.transform;
+            g.attr('transform', transform);
+            lastTransform = transform;
+        })
+    svg.call(zoom);
 
     var node = g.selectAll('.node')
         .data(data_nodes)
@@ -611,42 +619,36 @@ function addGui() {
                 var xScale = d3.scaleLinear().domain([0, width]).range([o, width - o]);
                 var yScale = d3.scaleLinear().domain([height, 0]).range([height - o, o]);
                 
-                svg.call(d3.zoom().scaleExtent([1, 15])
-                                    .on('zoom', function() {
-                                    
-                                    var transform = d3.event.transform;
-                                    var scaledX, scaledY;
-                                    
-                                    nodes.transition().duration(1)
-                                        .attr('transform', function(d) {
-                                            scaledX = transform.applyX(xScale(d.x));
-                                            scaledY = transform.applyY(yScale(d.y));
+                zoom.scaleExtent([1, 15])
+                    .on('zoom', function() {
+                        var transform = d3.event.transform;
+                        var scaledX, scaledY;
+                        
+                        nodes.transition().duration(1)
+                            .attr('transform', function(d) {
+                                scaledX = transform.applyX(xScale(d.x));
+                                scaledY = transform.applyY(yScale(d.y));
 
-                                            return 'translate(' + [scaledX, scaledY ] + ')';
-                                        })
-                                }));
+                                return 'translate(' + [scaledX, scaledY ] + ')';
+                            });
+                    });
+
+                svg.call(zoom);
 
             } else {
-                svg.on('mousedown.zoom', null);
-                svg.on('mousemove.zoom', null);
-                svg.on('dblclick.zoom', null);
-                svg.on('touchstart.zoom', null);
-                svg.on('wheel.zoom', null);
-                svg.on('mousewheel.zoom', null);
-                svg.on('MozMousePixelScroll.zoom', null);
-
                 simulation.nodes(nodes.data());
                 simulation.alphaTarget(0.2).restart();
 
                 var g = svg.select('g');
+                svg.call(zoom.transform, lastTransform);
 
-                svg.call(d3.zoom().scaleExtent([0.3, 1])
-                            .on('zoom', function() {
-                                var transform = d3.event.transform;
-                                g.attr("transform", transform);
-                        }));
-
-                
+                zoom.scaleExtent([0.3, 1])
+                    .on('zoom', function() {
+                        var transform = d3.event.transform;
+                        g.attr('transform', transform);
+                        lastTransform = transform;
+                    });
+                svg.call(zoom);                
             }
         });
     } else {
