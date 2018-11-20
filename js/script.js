@@ -14,7 +14,7 @@ var data = {
 var gui_elements = {
         'absolute range': false,
         'scaled': false,
-        'search for words': 'use \'+\' for multiple keywords'
+        'search for words': ''
 };
 
 var simulation;
@@ -286,7 +286,6 @@ function draw() {
     zoom = d3.zoom();
     zoom.scaleExtent([0.3, 1])
         .on('zoom', function() {
-            console.log('normal ' + d3.event.transform);
             var transform = d3.event.transform;
             g.attr('transform', transform);
             lastTransform = transform;
@@ -808,14 +807,13 @@ function addGui() {
                         outerRadius: scaleRadius(d.value),
                         startAngle:start,
                         endAngle:end
-                    }) 
+                    }); 
                 })
                 .attr('fill', function(d) { return color(ki); });
 
                 start = end;  
-            })
-        }) 
-
+            });
+        });
         // arcPath.transition().duration(1000)
         //         .attrTween('d', (d) => {
         //             let newAngle = isKeywordEmpty? 0 : 2 * Math.PI * result[0][d.idx].value;
@@ -835,4 +833,6 @@ function addGui() {
         
         simulation.alphaTarget(0.2).restart();        
     });
+
+    gui.__controllers[2].__input.placeholder = 'e.g. happy+life+...';
 }
