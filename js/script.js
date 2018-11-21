@@ -145,7 +145,7 @@ function ticked() {
         node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
 
     } else {
-       
+        node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });       
     }
 
     //console.log(node.filter((l,i) => l.idx == 45).data()[0]);
@@ -163,6 +163,10 @@ function ticked() {
 
 function init() {
     if(data.tw == undefined) return;
+    
+    var container = d3.select('.container').node();
+    var header = d3.select('.header').node();
+    container.style.height = (window.innerHeight - header.offsetHeight) + 'px';
     
     var ua = window.navigator.userAgent;
     isMSIE = (ua.indexOf('MSIE ') > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./));
@@ -209,7 +213,7 @@ function init() {
             wieght: data.weight,
             words: data.words,
             name: data.name,
-            endAngle: 0
+            clicked: false
         }
     });
 
@@ -280,17 +284,9 @@ function draw() {
 
     svg.style('cursor', 'move');
     var g = svg.append('g');
-    
-    lastTransform = g.attr('transform');
-
     zoom = d3.zoom();
-    zoom.scaleExtent([0.3, 1])
-        .on('zoom', function() {
-            var transform = d3.event.transform;
-            g.attr('transform', transform);
-            lastTransform = transform;
-        })
-    svg.call(zoom);
+    lastTransform = d3.zoomIdentity;
+    setNormalZoom(svg);
 
     var node = g.selectAll('.node')
         .data(data_nodes)
@@ -371,10 +367,12 @@ function draw() {
 
     let wordCloudLayer = node.append('g')
                             .classed('wordcloud-overlay hidden', true)
+    let leftX = topY= -centerY * 0.5;
+    let rightX = centerY * 0.5;
 
     wordCloudLayer.append('rect')
-            .attr('x', -centerY * 0.5 + 2)
-            .attr('y', -centerY * 0.5 + 2)
+            .attr('x', leftX + 2)
+            .attr('y', topY + 2)
             .attr('rx', (centerY * 0.5 - 2) * 0.1)
             .attr('ry', (centerY * 0.5 - 2) * 0.1)
             .attr('height', centerY - 4)
@@ -382,10 +380,59 @@ function draw() {
             .style('fill', d3.rgb(255, 255, 255, 0.7));
             //.classed('wordcloud-overlay__inner', true);
     
+    
+    var closeButton = wordCloudLayer.append('g');
+    let buttonRadius = 10;
+    let crossOffset = buttonRadius * 0.5
+    let buttonCenterX = rightX - buttonRadius * 2;
+    let buttonCenterY = topY + buttonRadius * 2;
+
+    closeButton.append('circle')
+            .attr('cx', buttonCenterX)
+            .attr('cy', buttonCenterY)
+            .attr('r', buttonRadius)
+            .style('fill', d3.rgb(255, 0, 0, 0.7))
+            .style('cursor', 'pointer');
+
+    closeButton.on('click', function(selectedNode) {
+                let selectedTarget = node.filter(function(d, i) { return (i === selectedNode.index); });
+                closeBubble(selectedNode, selectedTarget);
+
+            });
+
+    var cross = closeButton.append('g');
+
+    cross.style('cursor', 'pointer');
+
+    cross.append('line')
+            .attr("x1", buttonCenterX - buttonRadius + crossOffset)
+            .attr("y1", buttonCenterY)
+            .attr("x2", buttonCenterX + buttonRadius - crossOffset)
+            .attr("y2", buttonCenterY);
+            
+    cross.append('line')
+            .attr("x1", buttonCenterX)
+            .attr("y1", buttonCenterY - buttonRadius + crossOffset)
+            .attr("x2", buttonCenterX)
+            .attr("y2", buttonCenterY + buttonRadius  - crossOffset);
+
+    cross.attr("transform", "rotate (45," + buttonCenterX + "," + buttonCenterY + ")");
+
+    cross.style('stroke', 'black')
+        .style('stroke-width', 1.5);
+
+    var pinButton = wordCloudLayer.append('g');
+
+    pinButton.append('circle')
+            .attr('cx', leftX + buttonRadius * 2)
+            .attr('cy', topY + buttonRadius * 2)
+            .attr('r', buttonRadius)
+            .style('fill', d3.rgb(0, 200, 0, 0.7));
+
     wordCloudLayer.append('text')
             //.attr('clip-path', function(d) { return `url(#clip-${d.idx}`)
             .attr('x', 0)
-            .attr('y', (-centerY * 0.5) + 13 + 10)
+            .attr('y', (-centerY * 0.5) + 25)
             //.attr('fill', d3.rgb(255, 0, 0))
             //.attr('background-color', 'black')
             .attr('font-weight', 'bold')
@@ -395,6 +442,13 @@ function draw() {
             });
     
     node.on('click', function(selectedNode) {   
+        let currentTarget = d3.event.currentTarget;
+        d3.select(currentTarget).moveToFront();
+
+        if(selectedNode.clicked == true) return;
+
+        selectedNode.clicked = true;
+
         if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
             //console.log(selectedNode.idx + ' word cloud layout started');
 
@@ -435,42 +489,11 @@ function draw() {
 
         d3.event.stopPropagation();
         
-        let currentTarget = d3.event.currentTarget;
-        if (selectedNode === focusedNode) {
-            // no focusedNode or same focused node is clicked
-            return;
-        }
-        let lastNode = focusedNode;
-        let lastTarget = focusedTarget;
-        focusedNode = selectedNode;
-        focusedTarget = currentTarget;
-
-        simulation.alphaTarget(0.2).restart();
-        d3.selectAll('.wordcloud-overlay').classed('hidden', true);
         d3.select(currentTarget).selectAll('.arc').classed('hidden', true);
 
-        if (lastNode) {
-            node.filter(function(d, i) { return (i === lastNode.index); })
-                .transition().duration(500).ease(d3.easePolyOut)
-                .tween('rectToCircle', function() {
-                    let irl = d3.interpolateNumber(lastNode.r, lastNode.radius);
-                    let irlBorder = d3.interpolateNumber(lastNode.borderRatio, 1);
-                    return function(t) {
-                        lastNode.r = irl(t);
-                        lastNode.borderRatio = irlBorder(t);
-                    }
-                })
-                .on('end', function() {
-                    d3.select(lastTarget).select('.topic_name').classed('hidden', false);
-                    d3.select(lastTarget).selectAll('.arc').classed('hidden', false);
-                })
-                .on('interrupt', function() {
-                    lastNode.r = lastNode.radius;
-                    lastNode.borderRatio = 1;
-                });
-        }
+        let currentGroup = d3.select(currentTarget);
 
-        d3.transition().duration(1000).ease(d3.easePolyOut)
+        d3.transition().duration(500).ease(d3.easePolyOut)
             .tween('circleToRect', function() {
                 d3.select(currentTarget).moveToFront();
 
@@ -486,59 +509,61 @@ function draw() {
             })
             .on('end', function() {
                     simulation.alphaTarget(0);
-                    let $currentGroup = d3.select(currentTarget);
-                    $currentGroup.select('.wordcloud-overlay').classed('hidden', false);
-                    $currentGroup.select('.topic_name').classed('hidden', true);      
+                    
+                    currentGroup.select('.wordcloud-overlay').classed('hidden', false);
+                    currentGroup.select('.topic_name').classed('hidden', true);
             })
             .on('interrupt', function() {
-                    //console.log('move interrupt', selectedNode);
+                    console.log('move interrupt', selectedNode);
                     // selectedNode.fx = null;
                     // selectedNode.fy = null;
+                    selectedNode.borderRatio = 0.1;
+                    selectedNode.r = centerY * 0.5;
                     simulation.alphaTarget(0);
+
+                    currentGroup.select('.wordcloud-overlay').classed('hidden', false);
+                    currentGroup.select('.topic_name').classed('hidden', true); 
             });
         });
-
-    d3.select(document).on('click', function() {
-        let target = d3.event.target;
-
-        if(target.nodeName == 'svg' && focusedNode) {
-            simulation.alphaTarget(0.2).restart();
-
-            d3.transition().duration(500).ease(d3.easePolyOut)
-                .tween('rectToCircle', function() {
-                    //console.log('tweenMoveOut', focusedNode);
-                    let ir = d3.interpolateNumber(focusedNode.r, focusedNode.radius);
-                    let irlBorder = d3.interpolateNumber(focusedNode.borderRatio, 1);
-                    
-                    return function(t) {
-                        focusedNode.r = ir(t);
-                        focusedNode.borderRatio = irlBorder(t);
-                        
-                        simulation.force('collide', forceCollide);
-                    };
-                })
-                .on('end', function(){
-
-                    d3.select(focusedTarget).select('.topic_name').classed('hidden', false);
-                    d3.select(focusedTarget).selectAll('.arc').classed('hidden', false);
-                    //d3.select(focusedNode).moveToBack();
-                    focusedNode = null;
-                    focusedTarget = null;
-                    simulation.alphaTarget(0);
-                })
-                .on('interrupt', function() {
-                    simulation.alphaTarget(0);
-                });
-
-            d3.selectAll('.wordcloud-overlay').classed('hidden', true);
-
-        }
-    });
 
     addGui();
     drawLegend();
 }
 
+function closeBubble(node, target){
+    d3.transition()
+        .duration(500)
+        .ease(d3.easePolyOut)
+        .tween('rectToCircle', function() {
+            //console.log('tweenMoveOut', focusedNode);
+            let ir = d3.interpolateNumber(node.r, node.radius);
+            let irlBorder = d3.interpolateNumber(node.borderRatio, 1);
+            
+            return function(t) {
+                node.r = ir(t);
+                node.borderRatio = irlBorder(t);
+                
+                simulation.force('collide', forceCollide);
+            };
+        })
+        .on('end', function(){
+
+            target.select('.topic_name').classed('hidden', false);
+            target.selectAll('.arc').classed('hidden', false);
+            //d3.select(focusedNode).moveToBack();
+            
+            // focusedNode = null;
+            // focusedTarget = null;
+            simulation.alphaTarget(0);
+            node.clicked = false;
+        })
+        .on('interrupt', function() {
+            simulation.alphaTarget(0);
+            node.clicked = false;
+        });
+
+    target.select('.wordcloud-overlay').classed('hidden', true);
+}
 
 function calculateWordClouds() {
 
@@ -577,6 +602,44 @@ function calculateWordClouds() {
     });
 }
 
+function setNormalZoom(svg) {
+    zoom.scaleExtent([0.3, 1])
+        .on('zoom', function() {
+            var transform = d3.event.transform;
+
+            svg.select('g').attr('transform', transform);
+            lastTransform = transform;
+        });
+    svg.call(zoom);
+}
+
+function setSacledZoom(svg) {
+    var aspect = width / height;
+    var n = Math.floor(width / (2.1 * Math.sqrt(aspect * data.tw.length)));
+    var i = n * 1.8;
+    var o = 1.1 * n;
+
+    var xScale = d3.scaleLinear().domain([0, width]).range([o, width - o]);
+    var yScale = d3.scaleLinear().domain([height, 0]).range([height - o, o]);
+    var nodes = svg.selectAll('.node');
+
+    zoom.scaleExtent([1, 15])
+        .on('zoom', function() {
+            var transform = d3.event.transform;
+            var scaledX, scaledY;
+            
+            nodes.transition().duration(1)
+                .attr('transform', function(d) {
+                    scaledX = transform.applyX(xScale(d.x));
+                    scaledY = transform.applyY(yScale(d.y));
+
+                    return 'translate(' + [scaledX, scaledY ] + ')';
+                });
+        });
+
+    svg.call(zoom);
+}
+
 function addGui() {
     var gui = new dat.GUI({ autoPlace: false });
     var customContainer = $('.gui').append($(gui.domElement));
@@ -586,12 +649,13 @@ function addGui() {
     if(typeof data.topic_scaled != 'undefined' ) {
         scaled.onChange(function() {
 
-            var nodes = svg.selectAll('.node')
+            var nodes = svg.selectAll('.node');
 
             if(gui_elements.scaled) {
 
                 simulation.stop();
-                simulation.nodes([]);
+                // simulation.nodes([]);
+                simulation.force('collide', null);
 
                 data.topic_scaled.forEach(function(scaled, i) {
 
@@ -603,51 +667,22 @@ function addGui() {
                             .on('end', function(d) {
                                 d.x = centerX + width * scaled[0];
                                 d.y = centerY - height * scaled[1];
+                                setSacledZoom(svg);
                             })
                             .on('interrupt', function(d) {
                                 d.x = centerX + width * scaled[0];
                                 d.y = centerY - height * scaled[1];     
+                                setSacledZoom(svg);
                             });
                 });
 
-                var aspect = width / height;
-                var n = Math.floor(width / (2.1 * Math.sqrt(aspect * data.tw.length)));
-                var i = n * 1.8;
-                var o = 1.1 * n;
-
-                var xScale = d3.scaleLinear().domain([0, width]).range([o, width - o]);
-                var yScale = d3.scaleLinear().domain([height, 0]).range([height - o, o]);
-                
-                zoom.scaleExtent([1, 15])
-                    .on('zoom', function() {
-                        var transform = d3.event.transform;
-                        var scaledX, scaledY;
-                        
-                        nodes.transition().duration(1)
-                            .attr('transform', function(d) {
-                                scaledX = transform.applyX(xScale(d.x));
-                                scaledY = transform.applyY(yScale(d.y));
-
-                                return 'translate(' + [scaledX, scaledY ] + ')';
-                            });
-                    });
-
-                svg.call(zoom);
-
             } else {
-                simulation.nodes(nodes.data());
+                // simulation.nodes(nodes.data());
+                
+                simulation.force('collide', forceCollide);
                 simulation.alphaTarget(0.2).restart();
-
-                var g = svg.select('g');
                 svg.call(zoom.transform, lastTransform);
-
-                zoom.scaleExtent([0.3, 1])
-                    .on('zoom', function() {
-                        var transform = d3.event.transform;
-                        g.attr('transform', transform);
-                        lastTransform = transform;
-                    });
-                svg.call(zoom);                
+                setNormalZoom(svg);
             }
         });
     } else {
@@ -671,7 +706,7 @@ function addGui() {
                 .tween('circleResize', function(d) {
                     var src = d.r;
                     d.radius = scaleRadius(d.value);
-                    var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
+                    var dst = (d.clicked)? src : d.radius;
                     
                     let i = d3.interpolateNumber(src, dst);
 
@@ -740,27 +775,45 @@ function addGui() {
                 if(found.length == keyword.length)
                     result[i] = found;
             });
-        } 
-    
+        }
+
         rect.transition().duration(1000).ease(d3.easeElasticOut)
             .tween('circleSearch', function(d) {
-                var src = d.r;
+                // possible states
+                // no click, no result              --> dst = 0, borderRatio 1 -> 1
+                // no click, result/isKeywordEmpty  --> dst = sacaldeRadius(d.value), borderRatio 1 -> 1
+                // click, no result                 --> dst = 0, borderRatio 0.1 -> 1, wordcloud hidden
+                // click, result                    --> dst = src, borderRatio 0.1 -> 0.1, wordcloud visible
 
-                d.radius = (isKeywordEmpty || result[d.idx].length > 0)? scaleRadius(d.value) : 0;
-                
-                var dst = (focusedNode && focusedNode.idx == d.idx)? src : d.radius;
+                var src = d.r;
+                let hasResult = (isKeywordEmpty == false && result[d.idx].length > 0);
+
+                d.radius = (isKeywordEmpty || hasResult)? scaleRadius(d.value) : 0;
+                var dst = (d.clicked && hasResult)? src : d.radius;
                 let i = d3.interpolateNumber(src, dst);
 
+                var borderTarget = (d.clicked && hasResult)? 0.1: 1;
+                let irBorder = d3.interpolateNumber(d.borderRatio, borderTarget);
+
+                var parentNode = d3.select(this.parentNode);
+                
                 // due to that IE does not support clipPath
                 if(isMSIE) { 
-                    d3.select(this.parentNode).select('.topic_name').classed('hidden', (d.radius == 0));
+                    parentNode.select('.topic_name').classed('hidden', (d.radius == 0));
                 }
 
-                //hide a clicked bubble if it has not any keyword
-                //
+                //hide a clicked bubble if it has no search keyword
+                if(d.clicked && hasResult == false) {
+                    parentNode.select('.wordcloud-overlay').classed('hidden', true);
+                    parentNode.select('.topic_name').classed('hidden', false);
+                    d.clicked = false;
+                }
+
                 return function(t) {
                     d.r = i(t);
                     if(d.r < 0) d.r = 0;
+                    d.borderRatio = irBorder(t);
+
                     simulation.force('collide', forceCollide);
                 }
             })
@@ -798,7 +851,7 @@ function addGui() {
 
                 node.append('path')
                 .classed('arc', true)
-                .classed('hidden', function(d) { return (focusedNode && focusedNode.idx == d.idx); })
+                .classed('hidden', function(d) { return d.clicked; })
                 .attr('id', function(d) { return d.idx + kw.word + ki; })
                 .attr('d', function(d) {
 
