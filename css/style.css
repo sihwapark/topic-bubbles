@@ -2,7 +2,7 @@ html, body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: Helvetica, Calibri, Roboto, Open Sans, sans-serif
+    font-family: Helvetica, Calibri, Roboto, Open Sans, sans-serif;
     -webkit-backface-visibility: hidden;
 }
 
@@ -36,7 +36,7 @@ html, body {
     height: 100px;
     display: block;
     background-color: black;
-    font-family: Roboto;
+    font-family: Roboto, Helvetica, snas-serif;
 }
 
 .gui { 
@@ -52,6 +52,11 @@ html, body {
 text {
   font-size: 13px;
   text-anchor: middle;
+}
+
+text.clicked {
+    font-weight: bold;
+    text-decoration: underline;
 }
 
 svg {

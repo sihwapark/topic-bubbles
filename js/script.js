@@ -14,13 +14,14 @@ var data = {
 var gui_elements = {
         'absolute range': false,
         'scaled': false,
-        'search for words': ''
+        'search for words': '',
+        'clear search': clearSearch
 };
 
 var simulation;
 var centerX, centerY;
 var width, height;
-
+var minWordCloudSize = 400;
 let forceCollide = d3.forceCollide(function(d) { return d.r + 1; });
 var init_nodes;
 let scaleColor = d3.scaleSequential(d3.interpolateReds); 
@@ -40,6 +41,8 @@ var isFF = false; // check if a web browser is Firefox
 
 var lastTransform;
 var zoom;
+
+var searchInput; 
 
 function load() {
     
@@ -121,7 +124,6 @@ function set_tw(e) {
 
     init();
     draw();
-    //calculateWordClouds();
 };  
 
 function set_topic_scaled(e) {
@@ -218,6 +220,7 @@ function init() {
     });
 
     data.wordCloud = new Array();
+    data.searchedWords = new Array();
 }
 
 function drawLegend() {
@@ -367,16 +370,16 @@ function draw() {
 
     let wordCloudLayer = node.append('g')
                             .classed('wordcloud-overlay hidden', true)
-    let leftX = topY= -centerY * 0.5;
-    let rightX = centerY * 0.5;
+    let leftX = topY= -minWordCloudSize * 0.5;
+    let rightX = minWordCloudSize * 0.5;
 
     wordCloudLayer.append('rect')
             .attr('x', leftX + 2)
             .attr('y', topY + 2)
-            .attr('rx', (centerY * 0.5 - 2) * 0.1)
-            .attr('ry', (centerY * 0.5 - 2) * 0.1)
-            .attr('height', centerY - 4)
-            .attr('width', centerY - 4)
+            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('height', minWordCloudSize - 4)
+            .attr('width', minWordCloudSize - 4)
             .style('fill', d3.rgb(255, 255, 255, 0.7));
             //.classed('wordcloud-overlay__inner', true);
     
@@ -421,18 +424,18 @@ function draw() {
     cross.style('stroke', 'black')
         .style('stroke-width', 1.5);
 
-    var pinButton = wordCloudLayer.append('g');
+    // var pinButton = wordCloudLayer.append('g');
 
-    pinButton.append('circle')
-            .attr('cx', leftX + buttonRadius * 2)
-            .attr('cy', topY + buttonRadius * 2)
-            .attr('r', buttonRadius)
-            .style('fill', d3.rgb(0, 200, 0, 0.7));
+    // pinButton.append('circle')
+    //         .attr('cx', leftX + buttonRadius * 2)
+    //         .attr('cy', topY + buttonRadius * 2)
+    //         .attr('r', buttonRadius)
+    //         .style('fill', d3.rgb(0, 200, 0, 0.7));
 
     wordCloudLayer.append('text')
             //.attr('clip-path', function(d) { return `url(#clip-${d.idx}`)
             .attr('x', 0)
-            .attr('y', (-centerY * 0.5) + 25)
+            .attr('y', (-minWordCloudSize * 0.5) + 25)
             //.attr('fill', d3.rgb(255, 0, 0))
             //.attr('background-color', 'black')
             .attr('font-weight', 'bold')
@@ -461,7 +464,7 @@ function draw() {
                 }
             });
 
-            d3.layout.cloud().size([centerY - 10, centerY - 50])
+            d3.layout.cloud().size([minWordCloudSize - 10, minWordCloudSize - 50])
                     .timeInterval(10)
                     .words(words_frequency)
                     .padding(5)
@@ -469,19 +472,59 @@ function draw() {
                     .fontSize(function(w) { return w.size; })
                     .on('end', function(words) {
                         data.wordCloud[selectedNode.idx] = words;
-                        
                         //console.log(selectedNode.idx + ' word cloud layout ended');
 
                         var layer = wordCloudLayer.filter(function(l,i) { return (l.idx == selectedNode.idx); })
-                    
-                        data.wordCloud[selectedNode.idx].forEach(function(w) { 
-                            layer.append('text')
+                                                    .append('g').attr('id', 'words');
+                        
+                        data.wordCloud[selectedNode.idx].forEach(function(w, i) {
+                            data.wordCloud[selectedNode.idx][i].clicked = false;
+
+                            var text = layer.append('text')
                                 .style('font-size', w.size + 'px')
-                                //.style('fill', color(w.size % 20))
-                                .style('cursor', 'default')
+                                .style('cursor', 'pointer')
                                 .attr('transform', 
                                   'translate(' + [w.x, 20 + w.y] + ')rotate(' + w.rotate + ')')   
-                                .text(w.text);
+                                .text(w.text)
+                                .on('mouseover', function(d) {
+                                    text.style('fill', 'blue');
+                                })
+                                .on('mouseout', function(d) {
+                                    text.style('fill', 'black')
+
+                                    if(data.wordCloud[selectedNode.idx][i].clicked == false) {
+                                        text.classed('clicked', false);
+                                    }
+                                })
+                                .on('click', function(d) {
+
+                                    // if(data.searchedWords.length > 0)
+                                    //     clickedWords = data.searchedWords;
+
+                                    data.wordCloud[selectedNode.idx][i].clicked = !data.wordCloud[selectedNode.idx][i].clicked;
+                                    
+                                    if(data.wordCloud[selectedNode.idx][i].clicked) {
+                                        if(data.searchedWords.indexOf(w.text) == -1) data.searchedWords.push(w.text);
+                                        text.style('fill', 'black')
+                                            .classed('clicked', true);
+                                        
+                                    } else {
+                                        data.searchedWords = data.searchedWords.filter(function(element) {
+                                                                return element != w.text;
+                                                            });
+
+                                        text.classed('clicked', false);
+                                    }
+
+                                    searchKeywords(data.searchedWords, true);
+                                });
+
+                                if(typeof data.searchedWords != 'undefined' && 
+                                    data.searchedWords.indexOf(w.text) != -1) {
+
+                                    data.wordCloud[selectedNode.idx][i].clicked = true;
+                                    text.classed('clicked', true);
+                                }
                         });
                     })
                     .start();
@@ -497,7 +540,7 @@ function draw() {
             .tween('circleToRect', function() {
                 d3.select(currentTarget).moveToFront();
 
-                let ir = d3.interpolateNumber(selectedNode.r, centerY * 0.5);
+                let ir = d3.interpolateNumber(selectedNode.r, minWordCloudSize * 0.5);
                 let irBorder = d3.interpolateNumber(selectedNode.borderRatio, 0.1);
                 
                 return function(t) {
@@ -514,7 +557,7 @@ function draw() {
                     currentGroup.select('.topic_name').classed('hidden', true);
             })
             .on('interrupt', function() {
-                    console.log('move interrupt', selectedNode);
+                    //console.log('move interrupt', selectedNode);
                     // selectedNode.fx = null;
                     // selectedNode.fy = null;
                     selectedNode.borderRatio = 0.1;
@@ -524,7 +567,7 @@ function draw() {
                     currentGroup.select('.wordcloud-overlay').classed('hidden', false);
                     currentGroup.select('.topic_name').classed('hidden', true); 
             });
-        });
+    });
 
     addGui();
     drawLegend();
@@ -565,43 +608,6 @@ function closeBubble(node, target){
     target.select('.wordcloud-overlay').classed('hidden', true);
 }
 
-function calculateWordClouds() {
-
-    var task = 0;
-    data.wordCloud = new Array();
-
-    let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 25]);
-
-    data.tw.forEach(function(d, i) {
-       
-        var maxWeight = d.words[0].weight;
-        //done[i] = false;
-        var words_frequency = d.words.slice(0, 50).map(function(w) {
-            return {
-                text: w.word,
-                size: Math.floor(fontSizeScale(w.weight / maxWeight))
-            }
-        });
-
-        d3.layout.cloud().size([centerY - 10, centerY - 50])
-                .timeInterval(10)
-                .words(words_frequency)
-                .padding(5)
-                .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
-                .fontSize(function(w) { return w.size; })
-                .on('end', function(words) {
-                    data.wordCloud[i] = words;
-                    task--;
-
-                   // if(task == 0)
-                        //draw();
-                })
-                .start();
-
-        task++;
-    });
-}
-
 function setNormalZoom(svg) {
     zoom.scaleExtent([0.3, 1])
         .on('zoom', function() {
@@ -640,12 +646,225 @@ function setSacledZoom(svg) {
     svg.call(zoom);
 }
 
+var searchLegend = d3.legendColor().labelOffset(10).title('Search Result');
+var searchLegendColor = d3.scaleOrdinal();
+
+function searchKeywords(keywords, splited) {
+    
+    if(splited == false) {
+        if(keywords == '' || keywords.replace(/\+/g, '') == '') keywords = [];
+        else {
+            keywords = keywords.split('+').filter(function(element){
+                        return element != '';
+                    });
+        }
+
+        data.searchedWords = keywords;
+    }
+
+    var valueForSearchInput = '';
+    data.searchedWords.forEach(function(w, wi) {
+        valueForSearchInput += w;
+        if(wi < data.searchedWords.length - 1)
+            valueForSearchInput += '+';
+    });
+
+    searchInput.setValue(valueForSearchInput);
+
+    //if(data.searchWords == keywords) return;
+    var svg = d3.select('svg');
+
+    var result = [[],];
+
+    let isKeywordEmpty = (keywords.length == 0);
+    
+    console.log(keywords);
+
+    var arc = d3.arc();
+
+    var rect = svg.selectAll('.node rect[id]');
+    var arcPath = svg.selectAll('.node path[id]');
+
+    arcPath.remove();
+    svg.select('.legend-search').classed('hidden', isKeywordEmpty);
+
+    if(isKeywordEmpty == false) {
+
+        data.tw.forEach(function(d, i) {
+            result[i] = [];
+            
+            
+            let weight = d.weight;
+            var found = [];
+            keywords.forEach(function(kw, ki) {
+
+                if(kw == '') return;
+                
+                var v = {word: kw, value: 0, index:-1};
+                
+                let r = d.words.filter(function(w, wi) {
+                    if(w.word == kw.trim()) {
+                        v.index = wi;
+                        return true;
+                    }
+                    return false;
+                });
+                
+                if(r.length > 0) {
+                    v.value = r[0].weight/weight;
+                    found.push(v);
+                }
+            });
+
+            if(found.length == keywords.length)
+                result[i] = found;
+        });
+
+        searchLegendColor = d3.scaleOrdinal();
+        searchLegendColor.domain(keywords)
+            .range(keywords.map(function(val, i) {
+                return d3.interpolateYlGnBu(1 - (i / (keywords.length)));
+            }));
+
+        searchLegend.scale(searchLegendColor)
+        svg.select('.legend-search').call(searchLegend);
+    }
+
+    rect.transition().duration(1000).ease(d3.easeElasticOut)
+        .tween('circleSearch', function(d) {
+            // possible states
+            // no click, no result              --> dst = 0, borderRatio 1 -> 1
+            // no click, result/isKeywordEmpty  --> dst = sacaldeRadius(d.value), borderRatio 1 -> 1
+            // click, no result                 --> dst = 0, borderRatio 0.1 -> 1, wordcloud hidden
+            // click, result                    --> dst = src, borderRatio 0.1 -> 0.1, wordcloud visible
+
+            var src = d.r;
+            let hasResult = (isKeywordEmpty == false && result[d.idx].length > 0);
+
+            d.radius = (isKeywordEmpty || hasResult)? scaleRadius(d.value) : 0;
+            var dst = (d.clicked && hasResult)? src : d.radius;
+            let i = d3.interpolateNumber(src, dst);
+
+            var borderTarget = (d.clicked && hasResult)? 0.1: 1;
+            let irBorder = d3.interpolateNumber(d.borderRatio, borderTarget);
+
+            var parentNode = d3.select(this.parentNode);
+            var wordCloudLayer = parentNode.select('.wordcloud-overlay');
+            var texts = wordCloudLayer.select('g#words').selectAll('text');
+            texts.classed('clicked', false);
+            
+            if(typeof data.wordCloud[d.idx] != 'undefined') {
+                data.wordCloud[d.idx].forEach(function(w, i) {
+                    w.clicked = false;
+                });
+            }
+
+            // due to that IE does not support clipPath
+            if(isMSIE) { 
+                parentNode.select('.topic_name').classed('hidden', (d.radius == 0));
+            }
+            
+            //hide a clicked bubble if it has no search keyword
+            if(d.clicked && hasResult == false) {
+                wordCloudLayer.classed('hidden', true);
+                parentNode.select('.topic_name').classed('hidden', false);
+                d.clicked = false;
+            }
+
+            if(hasResult) {
+
+                result[d.idx].forEach(function(v) {
+                    var text = texts.filter(function(t, ti) { return ti == v.index; });
+                    text.classed('clicked', true);
+                    
+                    if(typeof data.wordCloud[d.idx] != 'undefined') {
+                        data.wordCloud[d.idx][v.index].clicked = true;
+                    }
+
+                    // console.log(v); 
+                });
+            }
+
+            return function(t) {
+                d.r = i(t);
+                if(d.r < 0) d.r = 0;
+                d.borderRatio = irBorder(t);
+
+                simulation.force('collide', forceCollide);
+            }
+        })
+        .on('end', function(t) {
+            
+            simulation.alphaTarget(0);
+                               
+        })
+        .on('interrupt', function() {
+            
+            simulation.alphaTarget(0);
+        });
+
+    var nodes = svg.selectAll('.node')
+
+    result.forEach(function(v, i) {
+
+        var start = 0;
+        var node = nodes.filter(function(n) { return (n.idx == i); });
+
+        v.forEach(function(kw, ki) {
+            
+            var end = start + 2 * Math.PI * kw.value;
+
+            node.append('path')
+            .classed('arc', true)
+            .classed('hidden', function(d) { return d.clicked; })
+            .attr('id', function(d) { return d.idx + kw.word + ki; })
+            .attr('d', function(d) {
+
+                return arc({
+                    innerRadius: 0,
+                    outerRadius: scaleRadius(d.value),
+                    startAngle:start,
+                    endAngle:end
+                }); 
+            })
+            .attr('fill', function(d) { return searchLegendColor(ki); });
+
+            start = end;  
+        });
+    });
+    // arcPath.transition().duration(1000)
+    //         .attrTween('d', (d) => {
+    //             let newAngle = isKeywordEmpty? 0 : 2 * Math.PI * result[0][d.idx].value;
+    //             let i = d3.interpolateNumber(d.endAngle, newAngle);
+
+    //             return (t) => {
+    //                 d.endAngle = i(t);
+                    
+    //                 return arc({
+    //                       innerRadius: 0,
+    //                       outerRadius: d.radius,
+    //                       startAngle: 0,
+    //                       endAngle: d.endAngle
+    //                     });
+    //             }
+    //         });
+    
+    simulation.alphaTarget(0.2).restart();   
+}
+
+function clearSearch() {
+    console.log('clear search');
+    console.log(data.searchedWords);
+
+    searchKeywords('', false);
+}
+
 function addGui() {
     var gui = new dat.GUI({ autoPlace: false });
     var customContainer = $('.gui').append($(gui.domElement));
     var svg = d3.select('svg');
     var scaled = gui.add(gui_elements, 'scaled');
-
+    
     if(typeof data.topic_scaled != 'undefined' ) {
         scaled.onChange(function() {
 
@@ -729,163 +948,12 @@ function addGui() {
     });
 
     // findind what topic bubbles include keywords and showing as a form of pie charts over a bubble
-    gui.add(gui_elements, 'search for words').onFinishChange(function(text) {
+    searchInput = gui.add(gui_elements, 'search for words').onFinishChange(function(text) {
         text = text.toLowerCase();
-        
-        if(data.searchWords == text) return;
-        
-        data.searchWords = text;
-
-        var result = [[],];
-
-        let isKeywordEmpty = (text == '' || text.replace(/\+/g, '') == '');
-        var keyword = text.split('+');
-        
-        var arc = d3.arc();
-
-        var rect = svg.selectAll('.node rect[id]');
-        var arcPath = svg.selectAll('.node path[id]');
-
-        arcPath.remove();
-
-        if(isKeywordEmpty == false) {
-
-            data.tw.forEach(function(d, i) {
-                result[i] = [];
-                
-                
-                let weight = d.weight;
-                var found = [];
-                keyword.forEach(function(kw, ki) {
-
-                    if(kw == '') return;
-                    
-                    var v = {word: kw, value: 0};
-                    
-                    let r = d.words.filter(function(w) {
-                        return (w.word == kw.trim());
-                    });
-                    
-                    if(r.length > 0) {
-                        v.value = r[0].weight/weight;
-                        found.push(v);
-                    }
-                });
-
-                if(found.length == keyword.length)
-                    result[i] = found;
-            });
-        }
-
-        rect.transition().duration(1000).ease(d3.easeElasticOut)
-            .tween('circleSearch', function(d) {
-                // possible states
-                // no click, no result              --> dst = 0, borderRatio 1 -> 1
-                // no click, result/isKeywordEmpty  --> dst = sacaldeRadius(d.value), borderRatio 1 -> 1
-                // click, no result                 --> dst = 0, borderRatio 0.1 -> 1, wordcloud hidden
-                // click, result                    --> dst = src, borderRatio 0.1 -> 0.1, wordcloud visible
-
-                var src = d.r;
-                let hasResult = (isKeywordEmpty == false && result[d.idx].length > 0);
-
-                d.radius = (isKeywordEmpty || hasResult)? scaleRadius(d.value) : 0;
-                var dst = (d.clicked && hasResult)? src : d.radius;
-                let i = d3.interpolateNumber(src, dst);
-
-                var borderTarget = (d.clicked && hasResult)? 0.1: 1;
-                let irBorder = d3.interpolateNumber(d.borderRatio, borderTarget);
-
-                var parentNode = d3.select(this.parentNode);
-                
-                // due to that IE does not support clipPath
-                if(isMSIE) { 
-                    parentNode.select('.topic_name').classed('hidden', (d.radius == 0));
-                }
-
-                //hide a clicked bubble if it has no search keyword
-                if(d.clicked && hasResult == false) {
-                    parentNode.select('.wordcloud-overlay').classed('hidden', true);
-                    parentNode.select('.topic_name').classed('hidden', false);
-                    d.clicked = false;
-                }
-
-                return function(t) {
-                    d.r = i(t);
-                    if(d.r < 0) d.r = 0;
-                    d.borderRatio = irBorder(t);
-
-                    simulation.force('collide', forceCollide);
-                }
-            })
-            .on('end', function(t) {
-                
-                simulation.alphaTarget(0);
-                                   
-            })
-            .on('interrupt', function() {
-                
-                simulation.alphaTarget(0);
-            });
-        
-
-        let color = d3.scaleOrdinal().domain(keyword)
-                            .range(keyword.map(function(val, i) {
-                                return d3.interpolateYlGnBu(1 - (i / (keyword.length)));
-                            }));
-
-        var searchLegend = d3.legendColor().labelOffset(10).title('Search Result').scale(color)
-        
-        svg.select('.legend-search').call(searchLegend);
-        svg.select('.legend-search').classed('hidden', isKeywordEmpty);
-
-        var nodes = svg.selectAll('.node')
-
-        result.forEach(function(v, i) {
-
-            var start = 0;
-            var node = nodes.filter(function(n) { return (n.idx == i); });
-
-            v.forEach(function(kw, ki) {
-                
-                var end = start + 2 * Math.PI * kw.value;
-
-                node.append('path')
-                .classed('arc', true)
-                .classed('hidden', function(d) { return d.clicked; })
-                .attr('id', function(d) { return d.idx + kw.word + ki; })
-                .attr('d', function(d) {
-
-                    return arc({
-                        innerRadius: 0,
-                        outerRadius: scaleRadius(d.value),
-                        startAngle:start,
-                        endAngle:end
-                    }); 
-                })
-                .attr('fill', function(d) { return color(ki); });
-
-                start = end;  
-            });
-        });
-        // arcPath.transition().duration(1000)
-        //         .attrTween('d', (d) => {
-        //             let newAngle = isKeywordEmpty? 0 : 2 * Math.PI * result[0][d.idx].value;
-        //             let i = d3.interpolateNumber(d.endAngle, newAngle);
-
-        //             return (t) => {
-        //                 d.endAngle = i(t);
-                        
-        //                 return arc({
-        //                       innerRadius: 0,
-        //                       outerRadius: d.radius,
-        //                       startAngle: 0,
-        //                       endAngle: d.endAngle
-        //                     });
-        //             }
-        //         });
-        
-        simulation.alphaTarget(0.2).restart();        
+        searchKeywords(text, false);             
     });
 
-    gui.__controllers[2].__input.placeholder = 'e.g. happy+life+...';
+    searchInput.__input.placeholder = 'e.g. happy+life+...';
+
+    gui.add(gui_elements, 'clear search');
 }
