@@ -5,7 +5,9 @@ var files = {
         meta: 'meta.csv.zip',
         dt: 'dt.json.zip',
         tw: 'tw.json',
-        topic_scaled: 'topic_scaled.csv'
+        topic_scaled: 'topic_scaled.csv',
+        auto_labels_supervised: 'output_supervised.csv',
+        auto_labels_unsupervised: 'output_unsupervised.csv'
 };
 
 var data = {
@@ -22,13 +24,12 @@ var simulation;
 var centerX, centerY;
 var width, height;
 var minWordCloudSize = 400;
-let forceCollide = d3.forceCollide(function(d) { return d.r + 1; });
+let forceCollide = d3.forceCollide(function(d) { return (d.clicked)? d.r * 1.2 : d.r + 2; });
 var init_nodes;
 let scaleColor = d3.scaleSequential(d3.interpolateReds); 
 var pack;
 var root;
 var data_nodes;
-let focusedNode, focusedTarget;
 
 var dataDomain;
 var scaleRadius;
@@ -50,7 +51,7 @@ function load() {
         if (typeof i === 'string') {
             set_topic_scaled(i);
         } else {
-            console.log('Unable to load a file ' + files.topic_scaled)
+            console.log('Unable to load a file ' + files.topic_scaled);
         }
     });
 
@@ -59,34 +60,52 @@ function load() {
         if (typeof i === 'string') {
             set_tw(i);
         } else {
-            console.log('Unable to load a file ' + files.tw)
+            console.log('Unable to load a file ' + files.tw);
         }
     });
+
+    load_data(data_folder[0] + files.auto_labels_unsupervised, function(e, i) {
+        if(typeof i === 'string') {
+            set_auto_labels(i, 'unsupervised');
+            load_data(data_folder[0] + files.auto_labels_supervised, function(e, i) {
+                if(typeof i === 'string') {
+                    set_auto_labels(i, 'supervised');
+                } else {
+                    console.log('Unable to load a file ' + files.auto_labels_supervised);
+                }
+            });
+
+        } else {
+            console.log('Unable to load a file ' + files.auto_labels_unsupervised);
+        }
+    });
+
+    
 };
 
 function load_data(e, t) {
     var i, n;
-    if (e === undefined) {
-        return t('target undefined', undefined)
+    if (typeof e === 'undefined') {
+        return t('target undefined', undefined);
     }
     i = e.replace(/^.*\//, '');
     n = d3.select('#m__DATA__' + i.replace(/\..*$/, ''));
     if (!n.empty()) {
-        return t(undefined, JSON.parse(n.html()))
+        return t(undefined, JSON.parse(n.html()));
     }
     if (e.search(/\.zip$/) > 0) {
         return d3.xhr(e).responseType('arraybuffer').get(function(e, n) {
             var o, r;
             if (n && n.status === 200 && n.response.byteLength) {
                 o = new JSZip(n.response);
-                r = o.file(i.replace(/\.zip$/, '')).asText()
+                r = o.file(i.replace(/\.zip$/, '')).asText();
             }
-            return t(e, r)
+            return t(e, r);
         })
     }
 
     return d3.text(e).then(function(data) {
-        return t(e, data)
+        return t(e, data);
     })
 };
 
@@ -119,7 +138,7 @@ function set_tw(e) {
             words: w,
             wordCloud: []
         }
-        return t
+        return t;
     }); 
 
     init();
@@ -133,10 +152,27 @@ function set_topic_scaled(e) {
     }
 
     i = e.replace(/^\n*/, '').replace(/\n*$/, '\n');
-    data.topic_scaled = d3.csvParseRows(i, function(e) {
-        return e.map(parseFloat)
+    data.topic_scaled = d3.csvParseRows(i, function(d) {
+        return d.map(parseFloat)
     });
 };
+
+function set_auto_labels(e, type) {
+    
+    if (typeof e !== 'string') {
+        return
+    }
+    
+    if(typeof data.auto_labels == 'undefined') {
+        data.auto_labels = d3.csvParseRows(e, function(d) {
+            return { idx: d[0], labels: {[type]: d.slice(1) }};
+        });
+    } else {
+        d3.csvParseRows(e, function(d, i) {
+            data.auto_labels[i].labels[type] = d.slice(1);
+        });
+    }
+}
 
 function ticked() {
 
@@ -155,7 +191,7 @@ function ticked() {
     node.select('rect')
     .attr('rx', function(d) { return d.r * d.borderRatio; })
     .attr('ry', function(d) { return d.r * d.borderRatio; })
-    .attr('width', function(d) { return d.r * 2; })
+    .attr('width', function(d) { return (d.expanded)? minWordCloudSize * 1.5 : d.r * 2; })
     .attr('height', function(d) { return d.r * 2; })
     .attr('x', function(d) { return d.r * -1; })
     .attr('y', function(d) { return d.r * -1; })
@@ -164,7 +200,7 @@ function ticked() {
 }
 
 function init() {
-    if(data.tw == undefined) return;
+    if(typeof data.tw == 'undefined') return;
     
     var container = d3.select('.container').node();
     var header = d3.select('.header').node();
@@ -215,7 +251,8 @@ function init() {
             wieght: data.weight,
             words: data.words,
             name: data.name,
-            clicked: false
+            clicked: false,
+            expanded: false
         }
     });
 
@@ -369,7 +406,7 @@ function draw() {
     // based on Jason Davies's library, https://github.com/jasondavies/d3-cloud
 
     let wordCloudLayer = node.append('g')
-                            .classed('wordcloud-overlay hidden', true)
+                            .classed('wordcloud-overlay hidden', true);
     let leftX = topY= -minWordCloudSize * 0.5;
     let rightX = minWordCloudSize * 0.5;
 
@@ -380,8 +417,7 @@ function draw() {
             .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
             .attr('height', minWordCloudSize - 4)
             .attr('width', minWordCloudSize - 4)
-            .style('fill', d3.rgb(255, 255, 255, 0.7));
-            //.classed('wordcloud-overlay__inner', true);
+            .style('fill', d3.rgb(255, 255, 255));
     
     
     var closeButton = wordCloudLayer.append('g');
@@ -398,9 +434,11 @@ function draw() {
             .style('cursor', 'pointer');
 
     closeButton.on('click', function(selectedNode) {
-                let selectedTarget = node.filter(function(d, i) { return (i === selectedNode.index); });
+                let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
+                if(selectedNode.expanded) { 
+                    toggleAutoLabels(selectedNode, selectedTarget);
+                }
                 closeBubble(selectedNode, selectedTarget);
-
             });
 
     var cross = closeButton.append('g');
@@ -424,18 +462,69 @@ function draw() {
     cross.style('stroke', 'black')
         .style('stroke-width', 1.5);
 
-    // var pinButton = wordCloudLayer.append('g');
+    var toggleAutoLabelButton = wordCloudLayer.append('g')
+                                .classed('toggle-auto-label', true);
 
-    // pinButton.append('circle')
-    //         .attr('cx', leftX + buttonRadius * 2)
-    //         .attr('cy', topY + buttonRadius * 2)
-    //         .attr('r', buttonRadius)
-    //         .style('fill', d3.rgb(0, 200, 0, 0.7));
+    var toggleButtonWidth = 8;
+    var toggleButtonHeight = 40;
+
+    var toggleButtonX = buttonCenterX;
+    var toggleButtonY = topY + minWordCloudSize * 0.5 - toggleButtonHeight * 0.5;
+    var offset = 5;
+    var toggleButtonCenterX = toggleButtonX + toggleButtonWidth * 0.5;
+    var toggleButtonCenterY = toggleButtonY + toggleButtonHeight * 0.5;
+
+    toggleAutoLabelButton.append('rect')
+            .attr('x', toggleButtonX - offset * 0.5)
+            .attr('y', toggleButtonY - offset * 0.5)
+            .attr('rx', (toggleButtonWidth + offset) * 0.1)
+            .attr('ry', (toggleButtonHeight + offset) * 0.1)
+            .attr('height', toggleButtonHeight + offset)
+            .attr('width', toggleButtonWidth + offset)
+            .style('fill', d3.rgb(220, 220, 220, 0.7))
+            .style('cursor', 'pointer');
+
+
+    var arrow = toggleAutoLabelButton.append('g')
+                                    .classed('toggle-arrow', true);
+    arrow.style('cursor', 'pointer');
+    arrow.append('line')
+            .attr("x1", toggleButtonX)
+            .attr("y1", toggleButtonY)
+            .attr("x2", toggleButtonCenterX - 1)
+            .attr("y2", toggleButtonCenterY);
+
+    arrow.append('line')
+            .attr("x1", toggleButtonX)
+            .attr("y1", toggleButtonCenterY + toggleButtonHeight * 0.5)
+            .attr("x2", toggleButtonCenterX - 1)
+            .attr("y2", toggleButtonCenterY);
+
+    arrow.append('line')
+            .attr("x1", toggleButtonCenterX + 1)
+            .attr("y1", toggleButtonY)
+            .attr("x2", toggleButtonCenterX + toggleButtonWidth * 0.5)
+            .attr("y2", toggleButtonCenterY);
+
+    arrow.append('line')
+            .attr("x1", toggleButtonCenterX + 1)
+            .attr("y1", toggleButtonCenterY + toggleButtonHeight * 0.5)
+            .attr("x2", toggleButtonCenterX + toggleButtonWidth * 0.5)
+            .attr("y2", toggleButtonCenterY);
+
+    arrow.style('stroke', 'black')
+        .style('stroke-width', 1);
+
+    toggleAutoLabelButton.on('click', function(selectedNode) {
+                let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
+                toggleAutoLabels(selectedNode, selectedTarget)
+            });
+
 
     wordCloudLayer.append('text')
             //.attr('clip-path', function(d) { return `url(#clip-${d.idx}`)
             .attr('x', 0)
-            .attr('y', (-minWordCloudSize * 0.5) + 25)
+            .attr('y', topY + 25)
             //.attr('fill', d3.rgb(255, 0, 0))
             //.attr('background-color', 'black')
             .attr('font-weight', 'bold')
@@ -444,6 +533,32 @@ function draw() {
                 return d.name;
             });
     
+
+    leftX = minWordCloudSize * 0.5;
+    topY= -minWordCloudSize * 0.5;
+
+    let autoLabels =  node.append('g')
+                        .classed('auto-labels hidden', true)
+
+    autoLabels.append('rect')
+            .attr('x', leftX)
+            .attr('y', topY + 2)
+            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('height', minWordCloudSize - 4)
+            .attr('width', minWordCloudSize * 0.5 - 2)
+            .style('fill', d3.rgb(255, 255, 255, 0.6));
+
+    autoLabels.append('text')
+        .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
+        .attr('y', topY + 25)
+        .attr('font-weight', 'bold')
+        .style('cursor', 'default')
+        .text(function(d) {
+            return 'Automatic Labels';
+        });
+
+
     node.on('click', function(selectedNode) {   
         let currentTarget = d3.event.currentTarget;
         d3.select(currentTarget).moveToFront();
@@ -464,7 +579,7 @@ function draw() {
                 }
             });
 
-            d3.layout.cloud().size([minWordCloudSize - 10, minWordCloudSize - 50])
+            d3.layout.cloud().size([minWordCloudSize - 15, minWordCloudSize - 50])
                     .timeInterval(10)
                     .words(words_frequency)
                     .padding(5)
@@ -528,6 +643,57 @@ function draw() {
                         });
                     })
                     .start();
+
+                var offsetY = 50;
+                var autoLabelsLayer = autoLabels.filter(function(l,i) { return (l.idx == selectedNode.idx); });
+
+                autoLabelsLayer.append('text')
+                        .attr('x', leftX + 15)
+                        .attr('y', topY + 25 + offsetY)
+                        .style('font-size', '15px')
+                        .style('text-anchor', 'start')
+                        .style('cursor', 'default')
+                        .text('Unsupervised:');
+                
+                offsetY += 50;
+
+                data.auto_labels[selectedNode.idx].labels['unsupervised'].forEach(function(d, i) {
+                    autoLabelsLayer.append('text')
+                        .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
+                        .attr('y', topY + 25 + offsetY)
+                        .style('font-size', '20px')
+                        .style('cursor', 'default')
+                        .text(function() {
+                            return d;
+                        });
+
+                    offsetY += 25;
+                });
+
+                offsetY = 50;
+
+                autoLabelsLayer.append('text')
+                        .attr('x', leftX + 15)
+                        .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
+                        .style('font-size', '15px')
+                        .style('text-anchor', 'start')
+                        .style('cursor', 'default')
+                        .text('Supervised:');
+                
+                offsetY += 50;
+
+                data.auto_labels[selectedNode.idx].labels['supervised'].forEach(function(d, i) {
+                    autoLabelsLayer.append('text')
+                        .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
+                        .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
+                        .style('font-size', '20px')
+                        .style('cursor', 'default')
+                        .text(function() {
+                            return d;
+                        });
+
+                    offsetY += 25;
+                });
         }
 
         d3.event.stopPropagation();
@@ -573,6 +739,49 @@ function draw() {
     drawLegend();
 }
 
+function toggleArrow(expanded, target) {
+    let buttonGroup = target.select('.toggle-auto-label');
+    let button = target.select('.toggle-auto-label rect');
+    let buttonCenterX = +button.attr('x') + (+button.attr('width')) * 0.5;
+    let buttonCenterY = +button.attr('y') + (+button.attr('height')) * 0.5;
+
+    let angle = (expanded)? 0 : 180;
+    buttonGroup.attr("transform", "rotate (" + angle + "," + buttonCenterX + "," + buttonCenterY + ")");
+}
+
+function toggleAutoLabels(node, target){
+    let rect = target.select('rect');
+    toggleArrow(node.expanded, target);
+
+    d3.transition()
+        .duration(200)
+        .ease((node.expanded)? d3.easePolyIn : d3.easePolyOut)
+        .tween('expandRect', function() {
+
+            if(node.expanded) target.select('.auto-labels').classed('hidden', true);
+
+            let irWidth = d3.interpolateNumber(rect.attr('width'), (node.expanded)? node.r * 2 : minWordCloudSize * 1.5);
+            
+            return function(t) {
+
+                rect.attr('width', irWidth(t));
+                simulation.force('collide', forceCollide);
+            };
+        })
+        .on('end', function(){
+            simulation.alphaTarget(0);
+            node.expanded = !node.expanded;
+            if(node.expanded) target.select('.auto-labels').classed('hidden', false);
+        })
+        .on('interrupt', function() {
+            rect.attr('width', (node.expanded)? node.r * 2 : minWordCloudSize * 1.5);
+            simulation.alphaTarget(0);
+            node.expanded = !node.expanded;
+            if(node.expanded) target.select('.auto-labels').classed('hidden', false);
+        });
+
+}
+
 function closeBubble(node, target){
     d3.transition()
         .duration(500)
@@ -581,6 +790,8 @@ function closeBubble(node, target){
             //console.log('tweenMoveOut', focusedNode);
             let ir = d3.interpolateNumber(node.r, node.radius);
             let irlBorder = d3.interpolateNumber(node.borderRatio, 1);
+
+            if(node.expanded) toggleAutoLabels(node, target);
             
             return function(t) {
                 node.r = ir(t);
@@ -766,6 +977,11 @@ function searchKeywords(keywords, splited) {
             
             //hide a clicked bubble if it has no search keyword
             if(d.clicked && hasResult == false) {
+                
+                if(d.expanded) {
+                    toggleAutoLabels(d, parentNode);
+                }
+
                 wordCloudLayer.classed('hidden', true);
                 parentNode.select('.topic_name').classed('hidden', false);
                 d.clicked = false;
