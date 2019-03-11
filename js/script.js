@@ -6,8 +6,8 @@ var files = {
         dt: 'dt.json.zip',
         tw: 'tw.json',
         topic_scaled: 'topic_scaled.csv',
-        auto_labels_supervised: 'output_supervised.csv',
-        auto_labels_unsupervised: 'output_unsupervised.csv'
+        auto_labels_supervised: 'output_supervised_.csv',
+        auto_labels_unsupervised: 'output_unsupervised_.csv'
 };
 
 var data = {
@@ -45,14 +45,48 @@ var zoom;
 
 var searchInput; 
 
+var worker = new Worker('js/worker.min.js');
+
 function load() {
-    
+    worker.fs = d3.map();
+    worker.onmessage = function(e) {
+        var i = worker.fs.get(e.data.what);
+        if (i) {
+            i(e.data.result);
+        }
+    };
+
+    worker.callback = function(e, i) {
+        worker.fs.set(e, i);
+    };
+
     load_data(data_folder[0] + files.topic_scaled, function(e, i) {
         if (typeof i === 'string') {
             set_topic_scaled(i);
         } else {
             console.log('Unable to load a file ' + files.topic_scaled);
         }
+    });
+
+    load_data(data_folder[0] + files.dt, function(e, i) {
+    
+        set_dt(i, function(e) {
+            if (e) {
+                load_data(data_folder[0] + files.meta, function(e, i) {
+                    if (typeof i === 'string') {
+                        set_meta(i);
+                    } else {
+                        view.error('Unable to load a file ' + files.meta)
+                    }
+                });
+            } else {
+                console.log('Unable to load a file ' + files.dt)
+            }
+        });
+
+        // console.log(i);
+
+        //data.dt = i;
     });
 
     load_data(data_folder[0] + files.tw, function(e, i) {
@@ -64,23 +98,21 @@ function load() {
         }
     });
 
-    load_data(data_folder[0] + files.auto_labels_unsupervised, function(e, i) {
-        if(typeof i === 'string') {
-            set_auto_labels(i, 'unsupervised');
-            load_data(data_folder[0] + files.auto_labels_supervised, function(e, i) {
-                if(typeof i === 'string') {
-                    set_auto_labels(i, 'supervised');
-                } else {
-                    console.log('Unable to load a file ' + files.auto_labels_supervised);
-                }
-            });
+    // load_data(data_folder[0] + files.auto_labels_unsupervised, function(e, i) {
+    //     if(typeof i === 'string') {
+    //         set_auto_labels(i, 'unsupervised');
+    //         load_data(data_folder[0] + files.auto_labels_supervised, function(e, i) {
+    //             if(typeof i === 'string') {
+    //                 set_auto_labels(i, 'supervised');
+    //             } else {
+    //                 console.log('Unable to load a file ' + files.auto_labels_supervised);
+    //             }
+    //         });
 
-        } else {
-            console.log('Unable to load a file ' + files.auto_labels_unsupervised);
-        }
-    });
-
-    
+    //     } else {
+    //         console.log('Unable to load a file ' + files.auto_labels_unsupervised);
+    //     }
+    // });
 };
 
 function load_data(e, t) {
@@ -94,10 +126,10 @@ function load_data(e, t) {
         return t(undefined, JSON.parse(n.html()));
     }
     if (e.search(/\.zip$/) > 0) {
-        return d3.xhr(e).responseType('arraybuffer').get(function(e, n) {
+        return d3.buffer(e).then(function(n) {
             var o, r;
-            if (n && n.status === 200 && n.response.byteLength) {
-                o = new JSZip(n.response);
+            if(n && n.byteLength) {
+                o = new JSZip(n);
                 r = o.file(i.replace(/\.zip$/, '')).asText();
             }
             return t(e, r);
@@ -108,6 +140,49 @@ function load_data(e, t) {
         return t(e, data);
     })
 };
+
+function set_dt(e, i) {
+    if (typeof e !== 'string') {
+        i(false)
+    }
+
+    worker.callback('set_dt', function(e) {
+        //data.dt = e;
+        i(e)
+    });
+
+    worker.postMessage({
+        what: 'set_dt',
+        dt: JSON.parse(e)
+    });
+}
+
+function set_meta(e) {
+    var i = e.replace(/^\n*/, "").replace(/\n*$/, "\n");
+    
+    data.docs = d3.csvParseRows(i, function(e, i) {
+            
+        var d = new Date(e[6].trim())
+        if(d == 'Invalid Date')
+            d = new Date();
+
+        var n;
+        n = {
+            doi: e[0].trim(),
+            title: e[1].trim(),
+            authors: e[2].trim(),
+            journal: e[3].trim(),
+            volume: e[4].trim(),
+            issue: e[5].trim(),
+            date: d,
+            pagerange: e[7].trim().replace(/^p?p\. /, "").replace(/-/g, "–")
+        };
+        e.slice(8, e.length).forEach(function(e, i) {
+            n[t.extra_fields[i] || "X" + String(i)] = e.trim()
+        });
+        return n
+    });
+}
 
 function set_tw(e) {
     var tw_json;
@@ -172,6 +247,32 @@ function set_auto_labels(e, type) {
             data.auto_labels[i].labels[type] = d.slice(1);
         });
     }
+}
+
+function topic_docs(topic_idx, num) {
+    if(typeof data.topic_docs === 'undefined')
+        data.topic_docs = {};
+    
+    if(typeof data.topic_docs[topic_idx] != 'undefined') return;
+
+    var result = function(d) {
+        data.topic_docs[topic_idx] = {
+            t: topic_idx,
+            docs: d,
+            citations: d.map(function(e) {
+                return data.docs[e.doc];
+            })
+        };
+
+        //console.log(data.topic_docs);
+    }
+
+    worker.callback("topic_docs/" + topic_idx + "/" + num, result);
+    worker.postMessage({
+        what: "topic_docs",
+        t: topic_idx,
+        n: num
+    });
 }
 
 function ticked() {
@@ -462,63 +563,63 @@ function draw() {
     cross.style('stroke', 'black')
         .style('stroke-width', 1.5);
 
-    var toggleAutoLabelButton = wordCloudLayer.append('g')
-                                .classed('toggle-auto-label', true);
+    // var toggleAutoLabelButton = wordCloudLayer.append('g')
+    //                             .classed('toggle-auto-label', true);
 
-    var toggleButtonWidth = 8;
-    var toggleButtonHeight = 40;
+    // var toggleButtonWidth = 8;
+    // var toggleButtonHeight = 40;
 
-    var toggleButtonX = buttonCenterX;
-    var toggleButtonY = topY + minWordCloudSize * 0.5 - toggleButtonHeight * 0.5;
-    var offset = 5;
-    var toggleButtonCenterX = toggleButtonX + toggleButtonWidth * 0.5;
-    var toggleButtonCenterY = toggleButtonY + toggleButtonHeight * 0.5;
+    // var toggleButtonX = buttonCenterX;
+    // var toggleButtonY = topY + minWordCloudSize * 0.5 - toggleButtonHeight * 0.5;
+    // var offset = 5;
+    // var toggleButtonCenterX = toggleButtonX + toggleButtonWidth * 0.5;
+    // var toggleButtonCenterY = toggleButtonY + toggleButtonHeight * 0.5;
 
-    toggleAutoLabelButton.append('rect')
-            .attr('x', toggleButtonX - offset * 0.5)
-            .attr('y', toggleButtonY - offset * 0.5)
-            .attr('rx', (toggleButtonWidth + offset) * 0.1)
-            .attr('ry', (toggleButtonHeight + offset) * 0.1)
-            .attr('height', toggleButtonHeight + offset)
-            .attr('width', toggleButtonWidth + offset)
-            .style('fill', d3.rgb(220, 220, 220, 0.7))
-            .style('cursor', 'pointer');
+    // toggleAutoLabelButton.append('rect')
+    //         .attr('x', toggleButtonX - offset * 0.5)
+    //         .attr('y', toggleButtonY - offset * 0.5)
+    //         .attr('rx', (toggleButtonWidth + offset) * 0.1)
+    //         .attr('ry', (toggleButtonHeight + offset) * 0.1)
+    //         .attr('height', toggleButtonHeight + offset)
+    //         .attr('width', toggleButtonWidth + offset)
+    //         .style('fill', d3.rgb(220, 220, 220, 0.7))
+    //         .style('cursor', 'pointer');
 
 
-    var arrow = toggleAutoLabelButton.append('g')
-                                    .classed('toggle-arrow', true);
-    arrow.style('cursor', 'pointer');
-    arrow.append('line')
-            .attr("x1", toggleButtonX)
-            .attr("y1", toggleButtonY)
-            .attr("x2", toggleButtonCenterX - 1)
-            .attr("y2", toggleButtonCenterY);
+    // var arrow = toggleAutoLabelButton.append('g')
+    //                                 .classed('toggle-arrow', true);
+    // arrow.style('cursor', 'pointer');
+    // arrow.append('line')
+    //         .attr("x1", toggleButtonX)
+    //         .attr("y1", toggleButtonY)
+    //         .attr("x2", toggleButtonCenterX - 1)
+    //         .attr("y2", toggleButtonCenterY);
 
-    arrow.append('line')
-            .attr("x1", toggleButtonX)
-            .attr("y1", toggleButtonCenterY + toggleButtonHeight * 0.5)
-            .attr("x2", toggleButtonCenterX - 1)
-            .attr("y2", toggleButtonCenterY);
+    // arrow.append('line')
+    //         .attr("x1", toggleButtonX)
+    //         .attr("y1", toggleButtonCenterY + toggleButtonHeight * 0.5)
+    //         .attr("x2", toggleButtonCenterX - 1)
+    //         .attr("y2", toggleButtonCenterY);
 
-    arrow.append('line')
-            .attr("x1", toggleButtonCenterX + 1)
-            .attr("y1", toggleButtonY)
-            .attr("x2", toggleButtonCenterX + toggleButtonWidth * 0.5)
-            .attr("y2", toggleButtonCenterY);
+    // arrow.append('line')
+    //         .attr("x1", toggleButtonCenterX + 1)
+    //         .attr("y1", toggleButtonY)
+    //         .attr("x2", toggleButtonCenterX + toggleButtonWidth * 0.5)
+    //         .attr("y2", toggleButtonCenterY);
 
-    arrow.append('line')
-            .attr("x1", toggleButtonCenterX + 1)
-            .attr("y1", toggleButtonCenterY + toggleButtonHeight * 0.5)
-            .attr("x2", toggleButtonCenterX + toggleButtonWidth * 0.5)
-            .attr("y2", toggleButtonCenterY);
+    // arrow.append('line')
+    //         .attr("x1", toggleButtonCenterX + 1)
+    //         .attr("y1", toggleButtonCenterY + toggleButtonHeight * 0.5)
+    //         .attr("x2", toggleButtonCenterX + toggleButtonWidth * 0.5)
+    //         .attr("y2", toggleButtonCenterY);
 
-    arrow.style('stroke', 'black')
-        .style('stroke-width', 1);
+    // arrow.style('stroke', 'black')
+    //     .style('stroke-width', 1);
 
-    toggleAutoLabelButton.on('click', function(selectedNode) {
-                let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
-                toggleAutoLabels(selectedNode, selectedTarget)
-            });
+    // toggleAutoLabelButton.on('click', function(selectedNode) {
+    //             let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
+    //             toggleAutoLabels(selectedNode, selectedTarget)
+    //         });
 
 
     wordCloudLayer.append('text')
@@ -537,27 +638,26 @@ function draw() {
     leftX = minWordCloudSize * 0.5;
     topY= -minWordCloudSize * 0.5;
 
-    let autoLabels =  node.append('g')
-                        .classed('auto-labels hidden', true)
+    // let autoLabels =  node.append('g')
+    //                     .classed('auto-labels hidden', true)
 
-    autoLabels.append('rect')
-            .attr('x', leftX)
-            .attr('y', topY + 2)
-            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('height', minWordCloudSize - 4)
-            .attr('width', minWordCloudSize * 0.5 - 2)
-            .style('fill', d3.rgb(255, 255, 255, 0.6));
+    // autoLabels.append('rect')
+    //         .attr('x', leftX)
+    //         .attr('y', topY + 2)
+    //         .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
+    //         .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
+    //         .attr('height', minWordCloudSize - 4)
+    //         .attr('width', minWordCloudSize * 0.5 - 2)
+    //         .style('fill', d3.rgb(255, 255, 255, 0.6));
 
-    autoLabels.append('text')
-        .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-        .attr('y', topY + 25)
-        .attr('font-weight', 'bold')
-        .style('cursor', 'default')
-        .text(function(d) {
-            return 'Automatic Labels';
-        });
-
+    // autoLabels.append('text')
+    //     .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
+    //     .attr('y', topY + 25)
+    //     .attr('font-weight', 'bold')
+    //     .style('cursor', 'default')
+    //     .text(function(d) {
+    //         return 'Automatic Labels';
+    //     });
 
     node.on('click', function(selectedNode) {   
         let currentTarget = d3.event.currentTarget;
@@ -566,6 +666,8 @@ function draw() {
         if(selectedNode.clicked == true) return;
 
         selectedNode.clicked = true;
+
+        topic_docs(selectedNode.idx, 20);
 
         if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
             //console.log(selectedNode.idx + ' word cloud layout started');
@@ -645,55 +747,55 @@ function draw() {
                     .start();
 
                 var offsetY = 50;
-                var autoLabelsLayer = autoLabels.filter(function(l,i) { return (l.idx == selectedNode.idx); });
+                // var autoLabelsLayer = autoLabels.filter(function(l,i) { return (l.idx == selectedNode.idx); });
 
-                autoLabelsLayer.append('text')
-                        .attr('x', leftX + 15)
-                        .attr('y', topY + 25 + offsetY)
-                        .style('font-size', '15px')
-                        .style('text-anchor', 'start')
-                        .style('cursor', 'default')
-                        .text('Unsupervised:');
+                // autoLabelsLayer.append('text')
+                //         .attr('x', leftX + 15)
+                //         .attr('y', topY + 25 + offsetY)
+                //         .style('font-size', '15px')
+                //         .style('text-anchor', 'start')
+                //         .style('cursor', 'default')
+                //         .text('Unsupervised:');
                 
-                offsetY += 50;
+                // offsetY += 50;
 
-                data.auto_labels[selectedNode.idx].labels['unsupervised'].forEach(function(d, i) {
-                    autoLabelsLayer.append('text')
-                        .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-                        .attr('y', topY + 25 + offsetY)
-                        .style('font-size', '20px')
-                        .style('cursor', 'default')
-                        .text(function() {
-                            return d;
-                        });
+                // data.auto_labels[selectedNode.idx].labels['unsupervised'].forEach(function(d, i) {
+                //     autoLabelsLayer.append('text')
+                //         .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
+                //         .attr('y', topY + 25 + offsetY)
+                //         .style('font-size', '20px')
+                //         .style('cursor', 'default')
+                //         .text(function() {
+                //             return d;
+                //         });
 
-                    offsetY += 25;
-                });
+                //     offsetY += 25;
+                // });
 
-                offsetY = 50;
+                // offsetY = 50;
 
-                autoLabelsLayer.append('text')
-                        .attr('x', leftX + 15)
-                        .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
-                        .style('font-size', '15px')
-                        .style('text-anchor', 'start')
-                        .style('cursor', 'default')
-                        .text('Supervised:');
+                // autoLabelsLayer.append('text')
+                //         .attr('x', leftX + 15)
+                //         .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
+                //         .style('font-size', '15px')
+                //         .style('text-anchor', 'start')
+                //         .style('cursor', 'default')
+                //         .text('Supervised:');
                 
-                offsetY += 50;
+                // offsetY += 50;
 
-                data.auto_labels[selectedNode.idx].labels['supervised'].forEach(function(d, i) {
-                    autoLabelsLayer.append('text')
-                        .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-                        .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
-                        .style('font-size', '20px')
-                        .style('cursor', 'default')
-                        .text(function() {
-                            return d;
-                        });
+                // data.auto_labels[selectedNode.idx].labels['supervised'].forEach(function(d, i) {
+                //     autoLabelsLayer.append('text')
+                //         .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
+                //         .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
+                //         .style('font-size', '20px')
+                //         .style('cursor', 'default')
+                //         .text(function() {
+                //             return d;
+                //         });
 
-                    offsetY += 25;
-                });
+                //     offsetY += 25;
+                // });
         }
 
         d3.event.stopPropagation();
@@ -750,35 +852,35 @@ function toggleArrow(expanded, target) {
 }
 
 function toggleAutoLabels(node, target){
-    let rect = target.select('rect');
-    toggleArrow(node.expanded, target);
+    // let rect = target.select('rect');
+    // toggleArrow(node.expanded, target);
 
-    d3.transition()
-        .duration(200)
-        .ease((node.expanded)? d3.easePolyIn : d3.easePolyOut)
-        .tween('expandRect', function() {
+    // d3.transition()
+    //     .duration(200)
+    //     .ease((node.expanded)? d3.easePolyIn : d3.easePolyOut)
+    //     .tween('expandRect', function() {
 
-            if(node.expanded) target.select('.auto-labels').classed('hidden', true);
+    //         if(node.expanded) target.select('.auto-labels').classed('hidden', true);
 
-            let irWidth = d3.interpolateNumber(rect.attr('width'), (node.expanded)? node.r * 2 : minWordCloudSize * 1.5);
+    //         let irWidth = d3.interpolateNumber(rect.attr('width'), (node.expanded)? node.r * 2 : minWordCloudSize * 1.5);
             
-            return function(t) {
+    //         return function(t) {
 
-                rect.attr('width', irWidth(t));
-                simulation.force('collide', forceCollide);
-            };
-        })
-        .on('end', function(){
-            simulation.alphaTarget(0);
-            node.expanded = !node.expanded;
-            if(node.expanded) target.select('.auto-labels').classed('hidden', false);
-        })
-        .on('interrupt', function() {
-            rect.attr('width', (node.expanded)? node.r * 2 : minWordCloudSize * 1.5);
-            simulation.alphaTarget(0);
-            node.expanded = !node.expanded;
-            if(node.expanded) target.select('.auto-labels').classed('hidden', false);
-        });
+    //             rect.attr('width', irWidth(t));
+    //             simulation.force('collide', forceCollide);
+    //         };
+    //     })
+    //     .on('end', function(){
+    //         simulation.alphaTarget(0);
+    //         node.expanded = !node.expanded;
+    //         if(node.expanded) target.select('.auto-labels').classed('hidden', false);
+    //     })
+    //     .on('interrupt', function() {
+    //         rect.attr('width', (node.expanded)? node.r * 2 : minWordCloudSize * 1.5);
+    //         simulation.alphaTarget(0);
+    //         node.expanded = !node.expanded;
+    //         if(node.expanded) target.select('.auto-labels').classed('hidden', false);
+    //     });
 
 }
 
@@ -1163,7 +1265,7 @@ function addGui() {
 
     });
 
-    // findind what topic bubbles include keywords and showing as a form of pie charts over a bubble
+    // finds what topic bubbles include keywords and showing as a form of pie charts over a bubble
     searchInput = gui.add(gui_elements, 'search for words').onFinishChange(function(text) {
         text = text.toLowerCase();
         searchKeywords(text, false);             
