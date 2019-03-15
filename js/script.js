@@ -249,11 +249,105 @@ function set_auto_labels(e, type) {
     }
 }
 
+//Text wrapping based on https://bl.ocks.org/mbostock/7555321
+function wrap(text, width) {
+
+    text.each(function () {
+        var text = d3.select(this),
+            words = text.text().split(/\s+/).reverse(),
+            word,
+            line = [],
+            lineNumber = 0,
+            lineHeight = 1.1, // ems
+            x = text.attr('x'),
+            y = text.attr('y'),
+            dy = 0, //parseFloat(text.attr("dy")),
+            tspan = text.text(null)
+                        .append('tspan')
+                        .attr('x', x)
+                        .attr('y', y)
+                        .attr('dy', dy + 'em')
+                        .attr('dominant-baseline', 'text-before-edge');
+
+        while (word = words.pop()) {
+            line.push(word);
+            tspan.text(line.join(' '));
+            if (tspan.node().getComputedTextLength() > width) {
+                line.pop();
+                tspan.text(line.join(' '));
+                line = [word];
+                tspan = text.append('tspan')
+                            .attr('x', x)
+                            .attr('y', y)
+                            .attr('dy', ++lineNumber * lineHeight + dy + 'em')
+                            .attr('dominant-baseline', 'text-before-edge')
+                            .text(word);
+            }
+        }
+    });
+}
+
+function show_docs_list(topic_idx) {
+    var svg = d3.select('svg');
+    var docLayer = svg.select('.doc-layer');
+    docLayer.classed('hidden', false);
+    var docs = data.topic_docs[topic_idx].citations.map(function(d, i) {
+                    return {
+                                id: data.topic_docs[topic_idx].docs[i].doc,
+                                frac: data.topic_docs[topic_idx].docs[i].frac,
+                                weight: data.topic_docs[topic_idx].docs[i].weight,
+                                citation: d
+                            };
+                });
+
+    var yOffset = 0;
+    var url = 'http://harbor.english.ucsb.edu:10001/projects/all-hands/20181105_1452_us-newspapers-humanities-250-dedupe/browser/';
+    if(docLayer.selectAll('text')) docLayer.selectAll('text').remove();
+    //for(var key in data.topic_docs) {
+        //console.log(key, data.topic_docs[key]);
+        docLayer.selectAll('rect')
+                .data(docs).enter()
+                            .append('rect')
+                            .attr('x', width * 0.6)
+                            .attr('y', function(d, i) { return i * 20; })
+                            .attr('width', width * 0.4)
+                            .attr('height', 20)
+                            .style('fill', 'transparent');
+                            
+
+        docLayer.selectAll('text')
+                .data(docs).enter().append('a')
+                            .attr('xlink:href', function(d) { return  url + d.citation.doi; })
+                            .append('text')
+                            .attr('x', width * 0.6 + 5)
+                            .attr('y', function(d, i) { return 5 + i * 40; })
+                            .style('font-size', '15px')
+                            .style('text-anchor', 'start')
+                            .style('dominant-baseline', 'text-before-edge')
+                            .text(function(d) { return '\"' + d.citation.title + '\", ' + d.citation.journal; })
+                            .call(wrap, width * 0.4 - 5);
+                                                
+
+
+
+        //data.topic_docs[key].citations.forEach(function(d) {
+        //     console.log(d);
+            
+                        
+
+            yOffset += 20;
+        // });
+    //}
+}
+
 function topic_docs(topic_idx, num) {
     if(typeof data.topic_docs === 'undefined')
         data.topic_docs = {};
     
-    if(typeof data.topic_docs[topic_idx] != 'undefined') return;
+    if(typeof data.topic_docs[topic_idx] != 'undefined') {
+        show_docs_list(topic_idx);
+        return;
+    }
 
     var result = function(d) {
         data.topic_docs[topic_idx] = {
@@ -263,8 +357,7 @@ function topic_docs(topic_idx, num) {
                 return data.docs[e.doc];
             })
         };
-
-        //console.log(data.topic_docs);
+        show_docs_list(topic_idx);
     }
 
     worker.callback("topic_docs/" + topic_idx + "/" + num, result);
@@ -620,8 +713,7 @@ function draw() {
     //             let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
     //             toggleAutoLabels(selectedNode, selectedTarget)
     //         });
-
-
+    
     wordCloudLayer.append('text')
             //.attr('clip-path', function(d) { return `url(#clip-${d.idx}`)
             .attr('x', 0)
@@ -667,7 +759,7 @@ function draw() {
 
         selectedNode.clicked = true;
 
-        topic_docs(selectedNode.idx, 20);
+        //topic_docs(selectedNode.idx, 20);
 
         if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
             //console.log(selectedNode.idx + ' word cloud layout started');
@@ -836,6 +928,18 @@ function draw() {
                     currentGroup.select('.topic_name').classed('hidden', true); 
             });
     });
+    
+
+    var svg = d3.select('svg');
+    var docLayer = svg.append('g').classed('doc-layer hidden', true);
+    
+   docLayer.append('rect')
+        .attr('x', width * 0.6)
+        .attr('y', 0)
+        .attr('width', width * 0.4)
+        .attr('height', height)
+        .style('fill', d3.rgb(255, 255, 255))
+        .style("opacity", 0.8);
 
     addGui();
     drawLegend();

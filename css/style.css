@@ -42,7 +42,7 @@ html, body {
 .gui { 
     position: absolute;
     top: 100px;
-    right: 0px;
+    left: 0px;
 }
 
 .container {
