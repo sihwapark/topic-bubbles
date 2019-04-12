@@ -46,6 +46,8 @@ var zoom;
 var searchInput; 
 
 var worker = new Worker('js/worker.min.js');
+var expandedWidthScale = 2.0;
+var expandedHeightScale = 2.0;
 
 function load() {
     worker.fs = d3.map();
@@ -287,10 +289,11 @@ function wrap(text, width) {
     });
 }
 
-function show_docs_list(topic_idx) {
-    var svg = d3.select('svg');
-    var docLayer = svg.select('.doc-layer');
-    docLayer.classed('hidden', false);
+function show_docs_list(topic_idx, docLayer) {
+
+    var leftX = minWordCloudSize * 0.5;
+    var topY= -minWordCloudSize * 0.5;
+
     var docs = data.topic_docs[topic_idx].citations.map(function(d, i) {
                     return {
                                 id: data.topic_docs[topic_idx].docs[i].doc,
@@ -300,52 +303,107 @@ function show_docs_list(topic_idx) {
                             };
                 });
 
-    var yOffset = 0;
     var url = 'http://harbor.english.ucsb.edu:10001/projects/all-hands/20181105_1452_us-newspapers-humanities-250-dedupe/browser/';
-    if(docLayer.selectAll('text')) docLayer.selectAll('text').remove();
-    //for(var key in data.topic_docs) {
-        //console.log(key, data.topic_docs[key]);
-        docLayer.selectAll('rect')
-                .data(docs).enter()
-                            .append('rect')
-                            .attr('x', width * 0.6)
-                            .attr('y', function(d, i) { return i * 20; })
-                            .attr('width', width * 0.4)
-                            .attr('height', 20)
-                            .style('fill', 'transparent');
-                            
-
-        docLayer.selectAll('text')
-                .data(docs).enter().append('a')
-                            .attr('xlink:href', function(d) { return  url + d.citation.doi; })
-                            .append('text')
-                            .attr('x', width * 0.6 + 5)
-                            .attr('y', function(d, i) { return 5 + i * 40; })
-                            .style('font-size', '15px')
-                            .style('text-anchor', 'start')
-                            .style('dominant-baseline', 'text-before-edge')
-                            .text(function(d) { return '\"' + d.citation.title + '\", ' + d.citation.journal; })
-                            .call(wrap, width * 0.4 - 5);
-                                                
-
-
-
-        //data.topic_docs[key].citations.forEach(function(d) {
-        //     console.log(d);
-            
-                        
-
-            yOffset += 20;
-        // });
-    //}
+    docLayer.selectAll('text.doc')
+            .data(docs).enter().append('a')
+                        .attr('xlink:href', function(d) { return  url + d.citation.doi; })
+                        .append('text')
+                        .attr('x',  leftX + 15)
+                        .attr('y', function(d, i) { return topY + 5 + (i + 1) * 37; })
+                        .style('font-size', '12px')
+                        .style('text-anchor', 'start')
+                        .style('dominant-baseline', 'text-before-edge')
+                        .text(function(d) { return '\"' + d.citation.title + '\", ' + d.citation.journal; })
+                        .call(wrap, minWordCloudSize - 20);
 }
 
-function topic_docs(topic_idx, num) {
+function show_sources(topic_idx, sourceLayer) {
+    sources = [];
+    data.topic_docs[topic_idx].citations.forEach(function(d, i) {
+
+        var name = d.journal;
+        var substringIndex = name.indexOf(' (');
+        if(substringIndex != -1) name = name.slice(0, substringIndex);
+        
+        var s = sources.find(function(d) {
+            return d.name == name;
+        });
+
+        if(typeof s === 'undefined') {
+            s = {name: name, weight: 0, index:[]};
+            sources.push(s);
+        }
+
+        s.weight += data.topic_docs[topic_idx].docs[i].weight;
+        s.index.push(i);
+    });
+
+    sources.sort(function(a, b) { return b.weight - a.weight; });
+    data.topic_sources[topic_idx] = sources;
+    var weights = sources.map(function(d) { return d.weight});
+
+    var x = d3.scaleBand()
+            .range([0, minWordCloudSize * 0.7])
+            .domain(sources.map(function(d) { return d.name; }))
+            .padding(1);
+    
+    sourceLayer.append('g')
+        .attr('transform', 'translate(-' + (minWordCloudSize * 0.35) + ', ' + (minWordCloudSize + 50) + ')')
+        .call(d3.axisBottom(x))
+        .selectAll('text')
+            .attr('transform', 'translate(-10, 0)rotate(-45)')
+            //.call(wrap, 100)
+            .style('font-size', '10px')
+            .style('text-anchor', 'end');
+
+    var y = d3.scaleLinear()
+            .domain([0, d3.max(weights) * 1.1])
+            .range([minWordCloudSize * 0.5 - 25, 0]);
+
+    var g = sourceLayer.append('g')
+        .attr('transform', 'translate(-' + (minWordCloudSize * 0.35) + ', ' + (minWordCloudSize * 0.5 + 75) + ')')
+        .call(d3.axisLeft(y).tickPadding(20))
+       
+    g.selectAll('text')
+        .style('font-size', '10px');
+
+    sourceLayer.append('text')
+        .attr('transform', 'translate(-' + (minWordCloudSize * 0.35) + ', ' + (minWordCloudSize * 0.5 + 70) + ')')
+        .style('font-size', '10px')
+        .style('text-anchor', 'end')
+        .text('Weight');
+
+    g.selectAll('source-lines')
+        .data(sources)
+        .enter()
+        .append('line')
+            .attr('x1', function(d) { return x(d.name); })
+            .attr('x2', function(d) { return x(d.name); })
+            .attr('y1', function(d) { return y(d.weight); })
+            .attr('y2', y(0))
+            .attr('stroke', 'grey');
+
+    g.selectAll('source-circles')
+        .data(sources)
+        .enter()
+        .append('circle')
+            .attr('cx', function(d) { return x(d.name); }) 
+            .attr('cy', function(d) { return y(d.weight); })
+            .attr('r', 5)
+            .style('fill', d3.rgb(0, 200, 255, 0.7))
+            .attr('stroke', 'black');
+}
+
+function topic_docs(topic_idx, num, docListLayer, sourceLayer) {
     if(typeof data.topic_docs === 'undefined')
         data.topic_docs = {};
     
+    if(typeof data.topic_sources === 'undefined')
+        data.topic_sources = {};
+
     if(typeof data.topic_docs[topic_idx] != 'undefined') {
-        show_docs_list(topic_idx);
+        show_docs_list(topic_idx, docListLayer);
+        show_sources(topic_idx, sourceLayer);
         return;
     }
 
@@ -355,9 +413,14 @@ function topic_docs(topic_idx, num) {
             docs: d,
             citations: d.map(function(e) {
                 return data.docs[e.doc];
+            }),
+            weight: d3.sum(d, function(e) {
+                return e.weight;
             })
         };
-        show_docs_list(topic_idx);
+
+        show_docs_list(topic_idx, docListLayer);
+        show_sources(topic_idx, sourceLayer);
     }
 
     worker.callback("topic_docs/" + topic_idx + "/" + num, result);
@@ -385,8 +448,8 @@ function ticked() {
     node.select('rect')
     .attr('rx', function(d) { return d.r * d.borderRatio; })
     .attr('ry', function(d) { return d.r * d.borderRatio; })
-    .attr('width', function(d) { return (d.expanded)? minWordCloudSize * 1.5 : d.r * 2; })
-    .attr('height', function(d) { return d.r * 2; })
+    .attr('width', function(d) { return (d.expanded)? minWordCloudSize * expandedWidthScale : d.r * 2; })
+    .attr('height', function(d) { return (d.expanded)? minWordCloudSize * expandedHeightScale: d.r * 2; })
     .attr('x', function(d) { return d.r * -1; })
     .attr('y', function(d) { return d.r * -1; })
     .style('fill', function(d) { return scaleColor(scaleValue(d.value)); });
@@ -630,7 +693,7 @@ function draw() {
     closeButton.on('click', function(selectedNode) {
                 let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
                 if(selectedNode.expanded) { 
-                    toggleAutoLabels(selectedNode, selectedTarget);
+                    toggleFullView(selectedNode, selectedTarget);
                 }
                 closeBubble(selectedNode, selectedTarget);
             });
@@ -656,8 +719,8 @@ function draw() {
     cross.style('stroke', 'black')
         .style('stroke-width', 1.5);
 
-    // var toggleAutoLabelButton = wordCloudLayer.append('g')
-    //                             .classed('toggle-auto-label', true);
+    // var toggleExpandButton = wordCloudLayer.append('g')
+    //                             .classed('toggle-full-view', true);
 
     // var toggleButtonWidth = 8;
     // var toggleButtonHeight = 40;
@@ -668,7 +731,7 @@ function draw() {
     // var toggleButtonCenterX = toggleButtonX + toggleButtonWidth * 0.5;
     // var toggleButtonCenterY = toggleButtonY + toggleButtonHeight * 0.5;
 
-    // toggleAutoLabelButton.append('rect')
+    // toggleExpandButton.append('rect')
     //         .attr('x', toggleButtonX - offset * 0.5)
     //         .attr('y', toggleButtonY - offset * 0.5)
     //         .attr('rx', (toggleButtonWidth + offset) * 0.1)
@@ -679,7 +742,7 @@ function draw() {
     //         .style('cursor', 'pointer');
 
 
-    // var arrow = toggleAutoLabelButton.append('g')
+    // var arrow = toggleExpandButton.append('g')
     //                                 .classed('toggle-arrow', true);
     // arrow.style('cursor', 'pointer');
     // arrow.append('line')
@@ -709,9 +772,9 @@ function draw() {
     // arrow.style('stroke', 'black')
     //     .style('stroke-width', 1);
 
-    // toggleAutoLabelButton.on('click', function(selectedNode) {
+    // toggleExpandButton.on('click', function(selectedNode) {
     //             let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
-    //             toggleAutoLabels(selectedNode, selectedTarget)
+    //             toggleFullView(selectedNode, selectedTarget)
     //         });
     
     wordCloudLayer.append('text')
@@ -726,6 +789,28 @@ function draw() {
                 return d.name;
             });
     
+    var expandButton = wordCloudLayer.append('g').classed('expand-button', true);
+    buttonCenterY = topY + minWordCloudSize - 4 - buttonRadius * 2;
+    expandButton.append('circle')
+            .attr('cx', buttonCenterX)
+            .attr('cy', buttonCenterY)
+            .attr('r', buttonRadius)
+            .style('fill', d3.rgb(0, 200, 255, 0.7))
+            .style('cursor', 'pointer');
+    
+    var expandButtonTriangle = expandButton.append('g').classed('expand-triangle', true);
+    var symbolGenerator = d3.symbol().type(d3.symbolTriangle).size(50);
+    expandButtonTriangle.append('path')
+            .attr('d',symbolGenerator)
+            .attr('transform', 'translate(' +[buttonCenterX, buttonCenterY] + ')rotate(15)')
+            .style('fill', 'black')
+            .style('cursor', 'pointer');
+
+
+    expandButton.on('click', function(selectedNode) {
+                let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
+                toggleFullView(selectedNode, selectedTarget)
+            });
 
     leftX = minWordCloudSize * 0.5;
     topY= -minWordCloudSize * 0.5;
@@ -751,6 +836,51 @@ function draw() {
     //         return 'Automatic Labels';
     //     });
 
+    let docLists = node.append('g')
+                        .classed('doc-list hidden', true)
+
+    docLists.append('rect')
+            .attr('x', leftX)
+            .attr('y', topY + 2)
+            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('height', minWordCloudSize * expandedHeightScale - 4)
+            .attr('width', minWordCloudSize * expandedWidthScale * 0.5 - 2)
+            .style('fill', d3.rgb(255, 255, 255, 0.8));
+
+    docLists.append('text')
+        .attr('x', leftX + (minWordCloudSize * expandedWidthScale * 0.5 - 2) * 0.5)
+        .attr('y', topY + 25)
+        .attr('font-weight', 'bold')
+        .style('cursor', 'default')
+        .text(function(d) {
+            return 'Top 20 Documents';
+        });
+
+    leftX = -minWordCloudSize * 0.5;
+    topY= minWordCloudSize * 0.5;    
+
+    let sources = node.append('g')
+                        .classed('source-view hidden', true)
+
+    sources.append('rect')
+            .attr('x', leftX + 2)
+            .attr('y', topY)
+            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('height', minWordCloudSize * expandedHeightScale - minWordCloudSize  - 2)
+            .attr('width', minWordCloudSize * expandedWidthScale * 0.5 - 4)
+            .style('fill', d3.rgb(255, 255, 255, 0.8));
+
+    sources.append('text')
+        .attr('x', leftX + (minWordCloudSize * expandedWidthScale * 0.5 - 4) * 0.5)
+        .attr('y', topY + 25)
+        .attr('font-weight', 'bold')
+        .style('cursor', 'default')
+        .text(function(d) {
+            return 'Sources of Top 20 Documents';
+        });
+
     node.on('click', function(selectedNode) {   
         let currentTarget = d3.event.currentTarget;
         d3.select(currentTarget).moveToFront();
@@ -758,8 +888,6 @@ function draw() {
         if(selectedNode.clicked == true) return;
 
         selectedNode.clicked = true;
-
-        //topic_docs(selectedNode.idx, 20);
 
         if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
             //console.log(selectedNode.idx + ' word cloud layout started');
@@ -888,6 +1016,11 @@ function draw() {
 
                 //     offsetY += 25;
                 // });
+                // 
+                // 
+                var docListLayer = docLists.filter(function(l,i) { return (l.idx == selectedNode.idx); });
+                var sourceLayer = sources.filter(function(l,i) { return (l.idx == selectedNode.idx); });
+                topic_docs(selectedNode.idx, 20, docListLayer, sourceLayer);
         }
 
         d3.event.stopPropagation();
@@ -930,24 +1063,24 @@ function draw() {
     });
     
 
-    var svg = d3.select('svg');
-    var docLayer = svg.append('g').classed('doc-layer hidden', true);
+    // var svg = d3.select('svg');
+    // var docLayer = svg.append('g').classed('doc-layer hidden', true);
     
-   docLayer.append('rect')
-        .attr('x', width * 0.6)
-        .attr('y', 0)
-        .attr('width', width * 0.4)
-        .attr('height', height)
-        .style('fill', d3.rgb(255, 255, 255))
-        .style("opacity", 0.8);
+    // docLayer.append('rect')
+    //     .attr('x', width * 0.6)
+    //     .attr('y', 0)
+    //     .attr('width', width * 0.4)
+    //     .attr('height', height)
+    //     .style('fill', d3.rgb(255, 255, 255))
+    //     .style("opacity", 0.8);
 
     addGui();
     drawLegend();
 }
 
 function toggleArrow(expanded, target) {
-    let buttonGroup = target.select('.toggle-auto-label');
-    let button = target.select('.toggle-auto-label rect');
+    let buttonGroup = target.select('.toggle-full-view');
+    let button = target.select('.toggle-full-view rect');
     let buttonCenterX = +button.attr('x') + (+button.attr('width')) * 0.5;
     let buttonCenterY = +button.attr('y') + (+button.attr('height')) * 0.5;
 
@@ -955,36 +1088,56 @@ function toggleArrow(expanded, target) {
     buttonGroup.attr("transform", "rotate (" + angle + "," + buttonCenterX + "," + buttonCenterY + ")");
 }
 
-function toggleAutoLabels(node, target){
-    // let rect = target.select('rect');
-    // toggleArrow(node.expanded, target);
+function toggleFullView(node, target){
+    let rect = target.select('rect');
+    //toggleArrow(node.expanded, target);
+    
+    let button = target.select('.expand-button circle');
+    let triangle = target.select('.expand-triangle');
+    let buttonCenterX = +button.attr('cx');
+    let buttonCenterY = +button.attr('cy');
+    
+    let angle = (node.expanded)? 15 : 195;
+    triangle.attr('transform', 'rotate(' + angle + "," + buttonCenterX + "," + buttonCenterY + ")");
 
-    // d3.transition()
-    //     .duration(200)
-    //     .ease((node.expanded)? d3.easePolyIn : d3.easePolyOut)
-    //     .tween('expandRect', function() {
+    d3.transition()
+        .duration(200)
+        .ease((node.expanded)? d3.easePolyIn : d3.easePolyOut)
+        .tween('expandRect', function() {
 
-    //         if(node.expanded) target.select('.auto-labels').classed('hidden', true);
+            if(node.expanded) { 
+                target.select('.doc-list').classed('hidden', true);
+                target.select('.source-view').classed('hidden', true);
+            }
 
-    //         let irWidth = d3.interpolateNumber(rect.attr('width'), (node.expanded)? node.r * 2 : minWordCloudSize * 1.5);
-            
-    //         return function(t) {
+            let irWidth = d3.interpolateNumber(rect.attr('width'), (node.expanded)? node.r * 2 : minWordCloudSize * expandedWidthScale);
+            let irHeight = d3.interpolateNumber(rect.attr('height'), (node.expanded)? node.r * 2 : minWordCloudSize * expandedHeightScale);
 
-    //             rect.attr('width', irWidth(t));
-    //             simulation.force('collide', forceCollide);
-    //         };
-    //     })
-    //     .on('end', function(){
-    //         simulation.alphaTarget(0);
-    //         node.expanded = !node.expanded;
-    //         if(node.expanded) target.select('.auto-labels').classed('hidden', false);
-    //     })
-    //     .on('interrupt', function() {
-    //         rect.attr('width', (node.expanded)? node.r * 2 : minWordCloudSize * 1.5);
-    //         simulation.alphaTarget(0);
-    //         node.expanded = !node.expanded;
-    //         if(node.expanded) target.select('.auto-labels').classed('hidden', false);
-    //     });
+            return function(t) {
+
+                rect.attr('width', irWidth(t));
+                rect.attr('height', irHeight(t));
+                simulation.force('collide', forceCollide);
+            };
+        })
+        .on('end', function(){
+            simulation.alphaTarget(0);
+            node.expanded = !node.expanded;
+            if(node.expanded) {
+                target.select('.doc-list').classed('hidden', false);
+                target.select('.source-view').classed('hidden', false);
+            }
+        })
+        .on('interrupt', function() {
+            rect.attr('width', (node.expanded)? node.r * 2 : minWordCloudSize * expandedWidthScale);
+            rect.attr('height', (node.expanded)? node.r * 2 : minWordCloudSize * expandedHeightScale);
+            simulation.alphaTarget(0);
+            node.expanded = !node.expanded;
+            if(node.expanded) {
+                target.select('.doc-list').classed('hidden', false);
+                target.select('.source-view').classed('hidden', false);
+            }        
+        });
 
 }
 
@@ -997,7 +1150,7 @@ function closeBubble(node, target){
             let ir = d3.interpolateNumber(node.r, node.radius);
             let irlBorder = d3.interpolateNumber(node.borderRatio, 1);
 
-            if(node.expanded) toggleAutoLabels(node, target);
+            if(node.expanded) toggleFullView(node, target);
             
             return function(t) {
                 node.r = ir(t);
@@ -1185,7 +1338,7 @@ function searchKeywords(keywords, splited) {
             if(d.clicked && hasResult == false) {
                 
                 if(d.expanded) {
-                    toggleAutoLabels(d, parentNode);
+                    toggleFullView(d, parentNode);
                 }
 
                 wordCloudLayer.classed('hidden', true);
