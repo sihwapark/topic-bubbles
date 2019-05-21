@@ -302,19 +302,32 @@ function show_docs_list(topic_idx, docLayer) {
                                 citation: d
                             };
                 });
-
-    var url = 'http://harbor.english.ucsb.edu:10001/projects/all-hands/20181105_1452_us-newspapers-humanities-250-dedupe/browser/';
+    
     docLayer.selectAll('text.doc')
-            .data(docs).enter().append('a')
-                        .attr('xlink:href', function(d) { return  url + d.citation.doi; })
-                        .append('text')
-                        .attr('x',  leftX + 15)
-                        .attr('y', function(d, i) { return topY + 5 + (i + 1) * 37; })
-                        .style('font-size', '12px')
-                        .style('text-anchor', 'start')
-                        .style('dominant-baseline', 'text-before-edge')
-                        .text(function(d) { return '\"' + d.citation.title + '\", ' + d.citation.journal; })
-                        .call(wrap, minWordCloudSize - 20);
+            .data(docs).enter()
+                        .append('foreignObject')
+                            .attr('x',  leftX + 15)
+                            .attr('y', function(d, i) { return topY + 5 + (i + 1) * 37; })
+                            .attr('width', minWordCloudSize - 20)
+                            .attr('height', 37)
+                            .append('xhtml:div')
+                                .style('text-align', 'left')
+                                .style('font-size', '12px')
+                                .style('word-wrap', 'break-word')
+                                .on('mouseover', function(d) {
+                                    d3.select(this)
+                                        .style('text-decoration', 'underline')
+                                        .style('cursor', 'pointer');
+                                })
+                                .on('mouseout', function(d) {
+                                    d3.select(this)
+                                        .style('text-decoration', 'none')
+                                        .style('cursor', 'default');
+                                })
+                                .on('click', function(d) {
+                                    window.open(d.citation.doi);
+                                })
+                                .html(function(d) { return '\"' + d.citation.title + '\", ' + d.citation.journal; });
 }
 
 function show_sources(topic_idx, sourceLayer) {
@@ -537,7 +550,6 @@ function drawLegend() {
       .attr('class', 'legend-search')
       .attr('transform', 'translate(' + [200, height - 120] + ')');
 
-    var steps
     var legendLinear = d3.legendColor()
       .labelFormat(d3.format('.2f'))
       .cells(5)
@@ -631,17 +643,30 @@ function draw() {
         .append('use')
         .attr('xlink:href', function(d) { return "#" + d.idx; });
 
-    node.append('text')
-        .classed('topic_name', true)
-        .attr('clip-path', function(d) { return "url(#clip-" + d.idx; })
-        .selectAll('tspan')
-        .data(function(d) { return d.name.split(); })
-        .enter().append('tspan')
-            .attr('x', 0)
-            .attr('y', function(d, i, nodes) { return (13 + (i - nodes.length / 2 - 0.5) * 10); })
-            .style('cursor', 'pointer')
-            .text(function(name) { return name; });
+    // node.append('text')
+    //     .classed('topic_name', true)
+    //     .attr('clip-path', function(d) { return "url(#clip-" + d.idx; })
+    //     .selectAll('tspan')
+    //     .data(function(d) { return d.name.split(); })
+    //     .enter().append('tspan')
+    //         .style('cursor', 'pointer')
+    //         .text(function(name) { return name; });
 
+    node.append('g')
+        .classed('topic_name', true)
+        .style('cursor', 'pointer')
+        .attr('clip-path', function(d) { return "url(#clip-" + d.idx + ")"; })
+        .append('foreignObject')
+                .attr('x', function(d) { return -d.radius;})
+                .attr('y', function(d) { return -d.radius;})
+                .attr('width', function(d) { return d.radius * 2;})
+                .attr('height', function(d) { return d.radius * 2;})
+                .append('xhtml:div')
+                    .style('line-height', function(d) { return d.radius * 2 + 'px';})
+                    .style('text-align', 'center')
+                    .style('font-size', '13px')
+                    .style('white-space', 'nowrap')
+                    .html(function(d) { return d.name; });
     
     d3.selection.prototype.moveToFront = function() {  
       return this.each(function(){
@@ -777,18 +802,30 @@ function draw() {
     //             toggleFullView(selectedNode, selectedTarget)
     //         });
     
-    wordCloudLayer.append('text')
-            //.attr('clip-path', function(d) { return `url(#clip-${d.idx}`)
-            .attr('x', 0)
-            .attr('y', topY + 25)
-            //.attr('fill', d3.rgb(255, 0, 0))
-            //.attr('background-color', 'black')
-            .attr('font-weight', 'bold')
-            .style('cursor', 'default')
-            .text(function(d) {
-                return d.name;
-            });
-    
+
+    // wordCloudLayer.append('text')
+    //         .attr('x', 0)
+    //         .attr('y', topY + 25)
+    //         .attr('background-color', 'black')
+    //         .attr('font-weight', 'bold')
+    //         .style('cursor', 'text-')
+    //         .text(function(d) {
+    //             return d.name;
+    //         });
+
+    var fo = wordCloudLayer.append('foreignObject')
+            .attr('x', -50)
+            .attr('y', topY + 10)
+            .attr('width', 100)
+            .attr('height', 25);
+           
+    var div = fo.append('xhtml:div')
+                .style('line-height', '25px')
+                .style('text-align', 'center')
+                .style('font-weight', 'bold')
+                .style('font-size', '13px')
+                .html(function(d) { return d.name; });
+
     var expandButton = wordCloudLayer.append('g').classed('expand-button', true);
     buttonCenterY = topY + minWordCloudSize - 4 - buttonRadius * 2;
     expandButton.append('circle')
@@ -848,14 +885,19 @@ function draw() {
             .attr('width', minWordCloudSize * expandedWidthScale * 0.5 - 2)
             .style('fill', d3.rgb(255, 255, 255, 0.8));
 
-    docLists.append('text')
-        .attr('x', leftX + (minWordCloudSize * expandedWidthScale * 0.5 - 2) * 0.5)
-        .attr('y', topY + 25)
-        .attr('font-weight', 'bold')
-        .style('cursor', 'default')
-        .text(function(d) {
-            return 'Top 20 Documents';
-        });
+    var fo = docLists.append('foreignObject')
+            .attr('x', leftX + (minWordCloudSize * expandedWidthScale * 0.5 - 2) * 0.5 - 125)
+            .attr('y', topY + 10)
+            .attr('width', 250)
+            .attr('height', 25);
+           
+    var div = fo.append('xhtml:div')
+                .style('line-height', '25px')
+                .style('text-align', 'center')
+                .style('font-weight', 'bold')
+                .style('font-size', '13px')
+                .style('cursor', 'default')
+                .html('Top 20 Documents');
 
     leftX = -minWordCloudSize * 0.5;
     topY= minWordCloudSize * 0.5;    
@@ -872,22 +914,28 @@ function draw() {
             .attr('width', minWordCloudSize * expandedWidthScale * 0.5 - 4)
             .style('fill', d3.rgb(255, 255, 255, 0.8));
 
-    sources.append('text')
-        .attr('x', leftX + (minWordCloudSize * expandedWidthScale * 0.5 - 4) * 0.5)
-        .attr('y', topY + 25)
-        .attr('font-weight', 'bold')
-        .style('cursor', 'default')
-        .text(function(d) {
-            return 'Sources of Top 20 Documents';
-        });
+    fo = sources.append('foreignObject')
+            .attr('x', leftX + (minWordCloudSize * expandedWidthScale * 0.5 - 4) * 0.5 - 125)
+            .attr('y', topY + 10)
+            .attr('width', 250)
+            .attr('height', 25);
+           
+    div = fo.append('xhtml:div')
+                .style('line-height', '25px')
+                .style('text-align', 'center')
+                .style('font-weight', 'bold')
+                .style('font-size', '13px')
+                .style('cursor', 'default')
+                .html('Sources of Top 20 Documents');
 
-    node.on('click', function(selectedNode) {   
+    node.on('click', function(selectedNode) {
         let currentTarget = d3.event.currentTarget;
         d3.select(currentTarget).moveToFront();
 
         if(selectedNode.clicked == true) return;
 
         selectedNode.clicked = true;
+        //window.location.hash = 'clicked_' + selectedNode.idx;
 
         if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
             //console.log(selectedNode.idx + ' word cloud layout started');
@@ -912,55 +960,64 @@ function draw() {
                         //console.log(selectedNode.idx + ' word cloud layout ended');
 
                         var layer = wordCloudLayer.filter(function(l,i) { return (l.idx == selectedNode.idx); })
-                                                    .append('g').attr('id', 'words');
+                                                    .append('g')
+                                                    .attr('id', 'words');
+                                                    
                         
                         data.wordCloud[selectedNode.idx].forEach(function(w, i) {
                             data.wordCloud[selectedNode.idx][i].clicked = false;
 
-                            var text = layer.append('text')
-                                .style('font-size', w.size + 'px')
-                                .style('cursor', 'pointer')
-                                .attr('transform', 
-                                  'translate(' + [w.x, 20 + w.y] + ')rotate(' + w.rotate + ')')   
-                                .text(w.text)
-                                .on('mouseover', function(d) {
-                                    text.style('fill', 'blue');
-                                })
-                                .on('mouseout', function(d) {
-                                    text.style('fill', 'black')
+                            var fo = layer.append('foreignObject')
+                                    .attr('transform', 
+                                        'translate(' + [w.x - w.width * 0.5, 20 + w.y - w.height * 0.4] + ')rotate(' + w.rotate + ')')   
+                                    .attr('width', w.width)
+                                    .attr('height', w.height);
 
-                                    if(data.wordCloud[selectedNode.idx][i].clicked == false) {
-                                        text.classed('clicked', false);
-                                    }
-                                })
-                                .on('click', function(d) {
+                           
+                            var div = fo.append('xhtml:div')
+                                        .style('line-height', w.size + 'px')
+                                        .style('cursor', 'pointer')
+                                        .style('text-align', 'center')
+                                        .style('font-size', w.size + 'px')
+                                        .html(w.text)
+                                        .on('mouseover', function(d) {
+                                            div.style('color', 'blue');
+                                        })
+                                        .on('mouseout', function(d) {
+                                            div.style('color', 'black')
 
-                                    // if(data.searchedWords.length > 0)
-                                    //     clickedWords = data.searchedWords;
+                                            if(data.wordCloud[selectedNode.idx][i].clicked == false) {
+                                                div.classed('clicked', false);
+                                            }
+                                        })
+                                        .on('click', function(d) {
 
-                                    data.wordCloud[selectedNode.idx][i].clicked = !data.wordCloud[selectedNode.idx][i].clicked;
-                                    
-                                    if(data.wordCloud[selectedNode.idx][i].clicked) {
-                                        if(data.searchedWords.indexOf(w.text) == -1) data.searchedWords.push(w.text);
-                                        text.style('fill', 'black')
-                                            .classed('clicked', true);
-                                        
-                                    } else {
-                                        data.searchedWords = data.searchedWords.filter(function(element) {
-                                                                return element != w.text;
-                                                            });
+                                            // if(data.searchedWords.length > 0)
+                                            //     clickedWords = data.searchedWords;
 
-                                        text.classed('clicked', false);
-                                    }
+                                            data.wordCloud[selectedNode.idx][i].clicked = !data.wordCloud[selectedNode.idx][i].clicked;
+                                            
+                                            if(data.wordCloud[selectedNode.idx][i].clicked) {
+                                                if(data.searchedWords.indexOf(w.text) == -1) data.searchedWords.push(w.text);
+                                                div.style('color', 'black')
+                                                    .classed('clicked', true);
+                                                
+                                            } else {
+                                                data.searchedWords = data.searchedWords.filter(function(element) {
+                                                                        return element != w.text;
+                                                                    });
 
-                                    searchKeywords(data.searchedWords, true);
-                                });
+                                                div.classed('clicked', false);
+                                            }
+
+                                            searchKeywords(data.searchedWords, true);
+                                        });
 
                                 if(typeof data.searchedWords != 'undefined' && 
                                     data.searchedWords.indexOf(w.text) != -1) {
 
                                     data.wordCloud[selectedNode.idx][i].clicked = true;
-                                    text.classed('clicked', true);
+                                    div.classed('clicked', true);
                                 }
                         });
                     })
@@ -1320,7 +1377,9 @@ function searchKeywords(keywords, splited) {
 
             var parentNode = d3.select(this.parentNode);
             var wordCloudLayer = parentNode.select('.wordcloud-overlay');
-            var texts = wordCloudLayer.select('g#words').selectAll('text');
+            var texts = wordCloudLayer.select('g#words').selectAll('div');
+
+            if(texts._groups.length != 0) console.log(texts);
             texts.classed('clicked', false);
             
             if(typeof data.wordCloud[d.idx] != 'undefined') {
