@@ -54,7 +54,7 @@ text {
   text-anchor: middle;
 }
 
-text.clicked {
+div.clicked {
     font-weight: bold;
     text-decoration: underline;
 }
