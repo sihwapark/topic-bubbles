@@ -65,38 +65,37 @@ function load() {
     load_data(data_folder[0] + files.topic_scaled, function(e, i) {
         if (typeof i === 'string') {
             set_topic_scaled(i);
+
+            load_data(data_folder[0] + files.tw, function(e, i) {
+                if (typeof i === 'string') {
+                    set_tw(i);
+
+                    load_data(data_folder[0] + files.dt, function(e, i) {
+    
+                        set_dt(i, function(e) {
+                            if (e) {
+                                load_data(data_folder[0] + files.meta, function(e, i) {
+                                    if (typeof i === 'string') {
+                                        set_meta(i);
+                                    } else {
+                                        view.error('Unable to load a file ' + files.meta)
+                                    }
+                                });
+                            } else {
+                                console.log('Unable to load a file ' + files.dt)
+                            }
+                        });
+
+                        // console.log(i);
+
+                        //data.dt = i;
+                    });
+                } else {
+                    console.log('Unable to load a file ' + files.tw);
+                }
+            });
         } else {
             console.log('Unable to load a file ' + files.topic_scaled);
-        }
-    });
-
-    load_data(data_folder[0] + files.dt, function(e, i) {
-    
-        set_dt(i, function(e) {
-            if (e) {
-                load_data(data_folder[0] + files.meta, function(e, i) {
-                    if (typeof i === 'string') {
-                        set_meta(i);
-                    } else {
-                        view.error('Unable to load a file ' + files.meta)
-                    }
-                });
-            } else {
-                console.log('Unable to load a file ' + files.dt)
-            }
-        });
-
-        // console.log(i);
-
-        //data.dt = i;
-    });
-
-    load_data(data_folder[0] + files.tw, function(e, i) {
-    
-        if (typeof i === 'string') {
-            set_tw(i);
-        } else {
-            console.log('Unable to load a file ' + files.tw);
         }
     });
 
@@ -182,8 +181,11 @@ function set_meta(e) {
         e.slice(8, e.length).forEach(function(e, i) {
             n[t.extra_fields[i] || "X" + String(i)] = e.trim()
         });
-        return n
+        return n;
     });
+
+    init();
+    draw();
 }
 
 function set_tw(e) {
@@ -217,9 +219,6 @@ function set_tw(e) {
         }
         return t;
     }); 
-
-    init();
-    draw();
 };  
 
 function set_topic_scaled(e) {

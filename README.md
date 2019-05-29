@@ -28,10 +28,10 @@ After having the model data, put below files inside `data` folder:
 Each bubble represents a topic and its size and color are determined by `alpha` in `tw.json`, the hyper parameter alpha for each topic, which indicates how many times each topic appears in the document. The bigger and redder a circle is, the higher an alpha value is. And it maps `alpha ` to size and color in two ways: Absolute and relative range mapping.
 
 - Absolute range mapping
-  - In this mapping,  a range for  `alpha`vaues is fixed with [0, 1] and this range is mapped into a size in the range [20, 80] with the use of `d3.scaleSqrt()`.
-  - For the color mapping,  it uses the 'Reds' sequential color scheme `d3.interpolateReds` with the range [0, 0.7] not to make too dark red color.
+  - In this mapping, a range for  `alpha`values is fixed with [0, 1] and this range is mapped into a size in the range [20, 80] with the use of `d3.scaleSqrt()`.
+  - For the color mapping, it uses the 'Reds' sequential color scheme `d3.interpolateReds` with the range [0, 0.7] not to make red color too dark.
 - Relative range mapping
-  - The alpha range depends on real data values by finding the maximum and minimum alpha value from the data.
+  - The alpha range depends on real data values by finding the maximum and minimum alpha values from the data.
   - Mapped ranges for color and size and a scaling function are the same with the absolute range mapping.
 
 Through the selection of the 'absolute range' checkbox in the GUI at the top-right corne, it is possible to change a mapping mode.
