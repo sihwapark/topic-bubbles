@@ -7,7 +7,8 @@ var files = {
         tw: 'tw.json',
         topic_scaled: 'topic_scaled.csv',
         auto_labels_supervised: 'output_supervised_.csv',
-        auto_labels_unsupervised: 'output_unsupervised_.csv'
+        auto_labels_unsupervised: 'output_unsupervised_.csv',
+        config: 'config.json'
 };
 
 var data = {
@@ -46,8 +47,10 @@ var zoom;
 var searchInput; 
 
 var worker = new Worker('js/worker.min.js');
-var expandedWidthScale = 2.0;
+var expandedWidthScale = 2.3;
 var expandedHeightScale = 2.0;
+
+var jsonCachePath = "";
 
 function load() {
     worker.fs = d3.map();
@@ -86,9 +89,15 @@ function load() {
                             }
                         });
 
-                        // console.log(i);
+                        load_data(data_folder[0] + files.config, function(e, i) {
 
-                        //data.dt = i;
+                            if(typeof i === 'string') {
+                                var config = JSON.parse(i);
+                                jsonCachePath = config.json_cache_path;
+                            } else {
+                                console.log('Unable to load a file ' + files.config);            
+                            }
+                        })
                     });
                 } else {
                     console.log('Unable to load a file ' + files.tw);
@@ -139,7 +148,9 @@ function load_data(e, t) {
 
     return d3.text(e).then(function(data) {
         return t(e, data);
-    })
+    }).catch(function(error) {
+        return t(e, null);
+    });
 };
 
 function set_dt(e, i) {
@@ -288,6 +299,14 @@ function wrap(text, width) {
     });
 }
 
+function getTextWidth(text, fontSize, fontFace) {
+    var canvas = document.createElement('canvas');
+    var context = canvas.getContext('2d');
+    context.font = fontSize + 'px ' + fontFace;
+    
+    return context.measureText(text).width;
+} 
+
 function show_docs_list(topic_idx, docLayer) {
 
     var leftX = minWordCloudSize * 0.5;
@@ -301,32 +320,41 @@ function show_docs_list(topic_idx, docLayer) {
                                 citation: d
                             };
                 });
-    
+    var totalLines = 0;
+    var lines = 0;
     docLayer.selectAll('text.doc')
             .data(docs).enter()
                         .append('foreignObject')
                             .attr('x',  leftX + 15)
-                            .attr('y', function(d, i) { return topY + 5 + (i + 1) * 37; })
-                            .attr('width', minWordCloudSize - 20)
-                            .attr('height', 37)
+                            .attr('y', function(d, i) { 
+                                var text ='\"' + d.citation.title + '\", ' + d.citation.journal;
+                                var textWidth = getTextWidth(text, 12, 'Helvetica');
+                                lines = Math.floor(textWidth / (minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)) + 1;
+
+                                totalLines += lines;
+                                return topY + 30 + (i + 1) * 12  + (totalLines - lines) * 12; 
+                            })
+                            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)
+                            .attr('height', lines * 15 + 'px')
                             .append('xhtml:div')
                                 .style('text-align', 'left')
                                 .style('font-size', '12px')
                                 .style('word-wrap', 'break-word')
                                 .on('mouseover', function(d) {
-                                    d3.select(this)
+                                    if(jsonCachePath != "") d3.select(this)
                                         .style('text-decoration', 'underline')
                                         .style('cursor', 'pointer');
                                 })
                                 .on('mouseout', function(d) {
-                                    d3.select(this)
+                                    if(jsonCachePath != "") d3.select(this)
                                         .style('text-decoration', 'none')
                                         .style('cursor', 'default');
                                 })
                                 .on('click', function(d) {
-                                    window.open(d.citation.doi);
+                                    if(jsonCachePath != "") window.open(jsonCachePath + d.citation.doi);
                                 })
                                 .html(function(d) { return '\"' + d.citation.title + '\", ' + d.citation.journal; });
+
 }
 
 function show_sources(topic_idx, sourceLayer) {
@@ -336,7 +364,7 @@ function show_sources(topic_idx, sourceLayer) {
         var name = d.journal;
         var substringIndex = name.indexOf(' (');
         if(substringIndex != -1) name = name.slice(0, substringIndex);
-        
+                
         var s = sources.find(function(d) {
             return d.name == name;
         });
@@ -356,31 +384,46 @@ function show_sources(topic_idx, sourceLayer) {
 
     var x = d3.scaleBand()
             .range([0, minWordCloudSize * 0.7])
-            .domain(sources.map(function(d) { return d.name; }))
+            .domain(sources.map(function(d) {
+                return d.name;
+            }))
             .padding(1);
     
-    sourceLayer.append('g')
-        .attr('transform', 'translate(-' + (minWordCloudSize * 0.35) + ', ' + (minWordCloudSize + 50) + ')')
-        .call(d3.axisBottom(x))
-        .selectAll('text')
+    var xAxis = sourceLayer.append('g')
+        .attr('transform', 'translate(-' + (minWordCloudSize * 0.30) + ', ' + (minWordCloudSize + 50) + ')')
+        .call(d3.axisBottom(x));
+
+    var labelWrap = function() {
+        var label = d3.select(this);
+        var textLength = label.node().getComputedTextLength();
+        var text = label.text();
+
+        while (textLength > (120) && text.length > 0) {
+            text = text.slice(0, -1);
+            label.text(text + '...');
+            textLength = label.node().getComputedTextLength();
+        }
+    }
+
+    xAxis.selectAll('text')
             .attr('transform', 'translate(-10, 0)rotate(-45)')
-            //.call(wrap, 100)
             .style('font-size', '10px')
-            .style('text-anchor', 'end');
+            .style('text-anchor', 'end')
+            .each(labelWrap);
 
     var y = d3.scaleLinear()
             .domain([0, d3.max(weights) * 1.1])
             .range([minWordCloudSize * 0.5 - 25, 0]);
 
     var g = sourceLayer.append('g')
-        .attr('transform', 'translate(-' + (minWordCloudSize * 0.35) + ', ' + (minWordCloudSize * 0.5 + 75) + ')')
+        .attr('transform', 'translate(-' + (minWordCloudSize * 0.30) + ', ' + (minWordCloudSize * 0.5 + 75) + ')')
         .call(d3.axisLeft(y).tickPadding(20))
        
     g.selectAll('text')
         .style('font-size', '10px');
 
     sourceLayer.append('text')
-        .attr('transform', 'translate(-' + (minWordCloudSize * 0.35) + ', ' + (minWordCloudSize * 0.5 + 70) + ')')
+        .attr('transform', 'translate(-' + (minWordCloudSize * 0.30) + ', ' + (minWordCloudSize * 0.5 + 70) + ')')
         .style('font-size', '10px')
         .style('text-anchor', 'end')
         .text('Weight');
@@ -394,6 +437,8 @@ function show_sources(topic_idx, sourceLayer) {
             .attr('y1', function(d) { return y(d.weight); })
             .attr('y2', y(0))
             .attr('stroke', 'grey');
+    
+    var tooltip = d3.select('.tooltip');
 
     g.selectAll('source-circles')
         .data(sources)
@@ -403,7 +448,18 @@ function show_sources(topic_idx, sourceLayer) {
             .attr('cy', function(d) { return y(d.weight); })
             .attr('r', 5)
             .style('fill', d3.rgb(0, 200, 255, 0.7))
-            .attr('stroke', 'black');
+            .attr('stroke', 'black')
+            .on('mouseover', function(d) {
+                
+                tooltip.style('visibility', 'visible')
+                        .style('left', d3.event.pageX + 'px')
+                        .style('top', d3.event.pageY + 'px')
+                        .html(d.name);
+            })
+            .on('mouseleave', function(d) {
+                tooltip.style('visibility', 'hidden')  
+            })
+            ;
 }
 
 function topic_docs(topic_idx, num, docListLayer, sourceLayer) {
@@ -461,7 +517,7 @@ function ticked() {
     .attr('rx', function(d) { return d.r * d.borderRatio; })
     .attr('ry', function(d) { return d.r * d.borderRatio; })
     .attr('width', function(d) { return (d.expanded)? minWordCloudSize * expandedWidthScale : d.r * 2; })
-    .attr('height', function(d) { return (d.expanded)? minWordCloudSize * expandedHeightScale: d.r * 2; })
+    .attr('height', function(d) { return (d.expanded)? minWordCloudSize * expandedHeightScale : d.r * 2; })
     .attr('x', function(d) { return d.r * -1; })
     .attr('y', function(d) { return d.r * -1; })
     .style('fill', function(d) { return scaleColor(scaleValue(d.value)); });
@@ -881,11 +937,11 @@ function draw() {
             .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
             .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
             .attr('height', minWordCloudSize * expandedHeightScale - 4)
-            .attr('width', minWordCloudSize * expandedWidthScale * 0.5 - 2)
+            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2)
             .style('fill', d3.rgb(255, 255, 255, 0.8));
 
     var fo = docLists.append('foreignObject')
-            .attr('x', leftX + (minWordCloudSize * expandedWidthScale * 0.5 - 2) * 0.5 - 125)
+            .attr('x', leftX + (minWordCloudSize * (expandedWidthScale - 1) - 2) * 0.5 - 125)
             .attr('y', topY + 10)
             .attr('width', 250)
             .attr('height', 25);
@@ -910,11 +966,11 @@ function draw() {
             .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
             .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
             .attr('height', minWordCloudSize * expandedHeightScale - minWordCloudSize  - 2)
-            .attr('width', minWordCloudSize * expandedWidthScale * 0.5 - 4)
+            .attr('width', minWordCloudSize - 4)
             .style('fill', d3.rgb(255, 255, 255, 0.8));
 
     fo = sources.append('foreignObject')
-            .attr('x', leftX + (minWordCloudSize * expandedWidthScale * 0.5 - 4) * 0.5 - 125)
+            .attr('x', leftX + (minWordCloudSize - 4) * 0.5 - 125)
             .attr('y', topY + 10)
             .attr('width', 250)
             .attr('height', 25);
@@ -1129,6 +1185,21 @@ function draw() {
     //     .attr('height', height)
     //     .style('fill', d3.rgb(255, 255, 255))
     //     .style("opacity", 0.8);
+
+    d3.select('body')
+        .append('div')
+        .classed('tooltip', true)
+        .style('position', 'absolute')
+        .style('visibility', 'visible')
+        .style('background-color', 'rgba(0, 0, 0, 0.5)')
+        .style('border', '0px')
+        .style('padding', '5px')
+        .style('min-width', '50px')
+        .style('height', '15px')
+        .style('font-size', '12px')
+        .style('color', 'white')
+        .style('line-height', '6px')
+        .style('text-align', 'center');
 
     addGui();
     drawLegend();
