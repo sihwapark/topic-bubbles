@@ -15,6 +15,7 @@ var data = {
 };
 
 var gui_elements = {
+        'topic': 1,
         'absolute range': false,
         'scaled': false,
         'search for words': '',
@@ -52,6 +53,9 @@ var expandedHeightScale = 2.0;
 
 var jsonCachePath = "";
 
+var progressBarWidth;
+var progress;
+
 function load() {
     worker.fs = d3.map();
     worker.onmessage = function(e) {
@@ -65,30 +69,82 @@ function load() {
         worker.fs.set(e, i);
     };
 
+    var ua = window.navigator.userAgent;
+    isFF = (ua.indexOf('Firefox') > 0);
+    isMSIE = (ua.indexOf('MSIE ') > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./));
+    
+    var container = d3.select('.container').node();
+    var header = d3.select('.header').node();
+    container.style.height = (window.innerHeight - header.offsetHeight) + 'px';
+    
+    var svg = d3.select('svg');
+    svgClientNode = (isFF)? svg.node().parentNode : svg.node();
+    width = svgClientNode.clientWidth;
+    height = svgClientNode.clientHeight;
+
+    var w = Math.max(200, width * 0.3);
+    var h = 20;
+    progressBarWidth = w;
+
+    var svgDefs = svg.append('defs');
+    var progressGradient = svgDefs.append('linearGradient')
+                                .attr('id', 'progressGradient');
+
+    progressGradient.append('stop')
+                .attr("stop-color", "rgb(254, 234, 225)")
+                .attr('offset', '0');
+
+    progressGradient.append('stop')
+                .attr("stop-color", "rgb(217, 39, 35)")
+                .attr('offset', '1');
+
+    var g = svg.append('g')
+                .attr('class', 'progress');
+
+    g.append('rect')
+        .attr('rx', 10)
+        .attr('ry', 10)
+        .attr('fill', 'gray')
+        .attr('height', h)
+        .attr('width', w)
+        .attr('x', (width - w) * 0.5)
+        .attr('y', (height - h) * 0.5);
+
+    progress = g.append('rect')
+                .attr('rx', 10)
+                .attr('ry', 10)
+                .attr('fill', 'url(#progressGradient)')
+                .attr('height', h)
+                .attr('width', 10)
+                .attr('x', (width - w) * 0.5)
+                .attr('y', (height - h) * 0.5);
+                    
+    g.append('text')
+        .attr('fill', 'dark gray')
+        .attr('x', (width - w) * 0.5 + 10)
+        .attr('y', (height) * 0.5)
+        .style('text-anchor', 'start')
+        .style('dominant-baseline', 'central')
+        .text('Loading data...');
+
     load_data(data_folder[0] + files.topic_scaled, function(e, i) {
         if (typeof i === 'string') {
             set_topic_scaled(i);
+
+            progress.transition().duration(500).attr('width', function() {
+                 return progressBarWidth * 0.25;
+            });
 
             load_data(data_folder[0] + files.tw, function(e, i) {
                 if (typeof i === 'string') {
                     set_tw(i);
 
-                    load_data(data_folder[0] + files.dt, function(e, i) {
-    
-                        set_dt(i, function(e) {
-                            if (e) {
-                                load_data(data_folder[0] + files.meta, function(e, i) {
-                                    if (typeof i === 'string') {
-                                        set_meta(i);
-                                    } else {
-                                        view.error('Unable to load a file ' + files.meta)
-                                    }
-                                });
-                            } else {
-                                console.log('Unable to load a file ' + files.dt)
-                            }
-                        });
+                    progress.transition().duration(500).attr('width', function() {
+                        return progressBarWidth * 0.50;
+                    });
 
+                    load_data(data_folder[0] + files.dt, function(e, i) {
+                        
                         load_data(data_folder[0] + files.config, function(e, i) {
 
                             if(typeof i === 'string') {
@@ -98,6 +154,33 @@ function load() {
                                 console.log('Unable to load a file ' + files.config);            
                             }
                         })
+
+                        progress.transition().duration(500).attr('width', function() {
+                            return progressBarWidth * 0.75;
+                        });
+
+                        set_dt(i, function(e) {
+                            if (e) {
+                                load_data(data_folder[0] + files.meta, function(e, i) {
+                                    if (typeof i === 'string') {
+                                       
+                                        progress.transition().duration(500).attr('width', function() {
+                                            return progressBarWidth * 1;
+                                        }).on('end', function() {
+                                            d3.select('.progress').remove();
+                                            set_meta(i);
+                                        });
+
+                                    } else {
+                                        view.error('Unable to load a file ' + files.meta)
+                                    }
+                                });
+                            } else {
+                                console.log('Unable to load a file ' + files.dt)
+                            }
+                        });
+
+                        
                     });
                 } else {
                     console.log('Unable to load a file ' + files.tw);
@@ -322,6 +405,7 @@ function show_docs_list(topic_idx, docLayer) {
                 });
     var totalLines = 0;
     var lines = 0;
+    var tooltip = d3.select('.tooltip');
     docLayer.selectAll('text.doc')
             .data(docs).enter()
                         .append('foreignObject')
@@ -341,6 +425,11 @@ function show_docs_list(topic_idx, docLayer) {
                                 .style('font-size', '12px')
                                 .style('word-wrap', 'break-word')
                                 .on('mouseover', function(d) {
+                                    // tooltip.style('visibility', 'visible')
+                                    //         .style('left', (d3.event.pageX + 10) + 'px')
+                                    //         .style('top', (d3.event.pageY + 15) + 'px')
+                                    //         .html('Weight: ' + d.weight);
+
                                     if(jsonCachePath != "") d3.select(this)
                                         .style('text-decoration', 'underline')
                                         .style('cursor', 'pointer');
@@ -428,6 +517,8 @@ function show_sources(topic_idx, sourceLayer) {
         .style('text-anchor', 'end')
         .text('Weight');
 
+    var tooltip = d3.select('.tooltip');
+
     g.selectAll('source-lines')
         .data(sources)
         .enter()
@@ -436,9 +527,16 @@ function show_sources(topic_idx, sourceLayer) {
             .attr('x2', function(d) { return x(d.name); })
             .attr('y1', function(d) { return y(d.weight); })
             .attr('y2', y(0))
-            .attr('stroke', 'grey');
-    
-    var tooltip = d3.select('.tooltip');
+            .attr('stroke', 'grey')
+            .on('mouseover', function(d) {
+                tooltip.style('visibility', 'visible')
+                        .style('left', d3.event.pageX + 'px')
+                        .style('top', d3.event.pageY + 'px')
+                        .html(d.name);
+            })
+            .on('mouseleave', function(d) {
+                //tooltip.style('visibility', 'hidden');
+            });
 
     g.selectAll('source-circles')
         .data(sources)
@@ -450,16 +548,14 @@ function show_sources(topic_idx, sourceLayer) {
             .style('fill', d3.rgb(0, 200, 255, 0.7))
             .attr('stroke', 'black')
             .on('mouseover', function(d) {
-                
                 tooltip.style('visibility', 'visible')
                         .style('left', d3.event.pageX + 'px')
                         .style('top', d3.event.pageY + 'px')
                         .html(d.name);
             })
             .on('mouseleave', function(d) {
-                tooltip.style('visibility', 'hidden')  
-            })
-            ;
+               // tooltip.style('visibility', 'hidden');
+            });
 }
 
 function topic_docs(topic_idx, num, docListLayer, sourceLayer) {
@@ -476,6 +572,7 @@ function topic_docs(topic_idx, num, docListLayer, sourceLayer) {
     }
 
     var result = function(d) {
+        console.log(d);
         data.topic_docs[topic_idx] = {
             t: topic_idx,
             docs: d,
@@ -527,19 +624,6 @@ function ticked() {
 function init() {
     if(typeof data.tw == 'undefined') return;
     
-    var container = d3.select('.container').node();
-    var header = d3.select('.header').node();
-    container.style.height = (window.innerHeight - header.offsetHeight) + 'px';
-    
-    var ua = window.navigator.userAgent;
-    isMSIE = (ua.indexOf('MSIE ') > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./));
-    isFF = (ua.indexOf('Firefox') > 0);
-
-    var svg = d3.select('svg');
-    var svgClientNode = (isFF)? svg.node().parentNode : svg.node();
-    width = svgClientNode.clientWidth;
-    height = svgClientNode.clientHeight;
-
     centerX = width * 0.5;
     centerY = height * 0.5;
     let strength = 0.05;
@@ -573,7 +657,7 @@ function init() {
             idx: data.idx,
             radius: node.r,
             value: node.value,
-            wieght: data.weight,
+            weight: data.weight,
             words: data.words,
             name: data.name,
             clicked: false,
@@ -652,9 +736,27 @@ function draw() {
     lastTransform = d3.zoomIdentity;
     setNormalZoom(svg);
 
+    var tooltip = d3.select('body')
+        .append('div')
+        .classed('tooltip', true)
+        .style('position', 'absolute')
+        .style('left', 0)
+        .style('top', 0)
+        .style('visibility', 'hidden')
+        .style('background-color', 'rgba(0, 0, 0, 0.5)')
+        .style('border', '0px')
+        .style('padding', '5px')
+        .style('min-width', '50px')
+        .style('height', '15px')
+        .style('font-size', '12px')
+        .style('color', 'white')
+        .style('line-height', '6px')
+        .style('text-align', 'center');
+
     var node = g.selectAll('.node')
         .data(data_nodes)
         .enter().append('g')
+        .attr('id', function(d) { return 'node-' + d.idx; })
         .attr('class', 'node')
         .call(d3.drag()
                 .on('start', function(d) {
@@ -666,11 +768,13 @@ function draw() {
                 .on('drag', function(d) {
                     d.fx = d3.event.x;
                     d.fy = d3.event.y;
+                    if(!d.clicked) tooltip.style('visibility', 'hidden');
                 })
                 .on('end', function(d) {
                     if (!d3.event.active) simulation.alphaTarget(0);
                     d.fx = null;
                     d.fy = null;
+                    if(!d.clicked) tooltip.style('visibility', 'visible');
                 }));
 
     simulation.nodes(data_nodes);
@@ -683,6 +787,8 @@ function draw() {
         .attr('height', 0)
         .style('fill', function(d) { return scaleColor(scaleValue(d.value)); })
         .style('cursor', 'pointer')
+        .style('stroke', 'rgb(0,0,0)')
+        .style('stroke-width', 0)
         .transition().duration(2000).ease(d3.easeElasticOut)
                 .tween('circleIn', function(d) {
                     let i = d3.interpolateNumber(0, d.radius);
@@ -712,6 +818,21 @@ function draw() {
         .style('cursor', 'pointer')
         .attr('clip-path', function(d) { return "url(#clip-" + d.idx + ")"; })
         .append('foreignObject')
+                .on('mouseover', function(d) {
+                    if(d.clicked) return;
+
+                    tooltip.style('visibility', 'visible')
+                            .style('left', d3.event.pageX + 'px')
+                            .style('top', d3.event.pageY + 'px')
+                            .html(d.value.toFixed(4));
+                    var rect = node.select('rect[id=\'' + d.idx + '\']');
+                    rect.style('stroke-width', 3);
+                })
+                .on('mouseleave', function(d) {
+                    tooltip.style('visibility', 'hidden');
+                    var rect = node.select('rect[id=\'' + d.idx + '\']');
+                    rect.style('stroke-width', 0);
+                })
                 .attr('x', function(d) { return -d.radius;})
                 .attr('y', function(d) { return -d.radius;})
                 .attr('width', function(d) { return d.radius * 2;})
@@ -1036,7 +1157,13 @@ function draw() {
                                         .style('font-size', w.size + 'px')
                                         .html(w.text)
                                         .on('mouseover', function(d) {
+                                            
                                             div.style('color', 'blue');
+                                            tooltip.style('visibility', 'visible')
+                                                .style('left', (d3.event.pageX + 10) + 'px')
+                                                .style('top', (d3.event.pageY + 15) + 'px')
+                                                .html('Weight: ' + d.words[i].weight
+                                                 + '(' + (100 * d.words[i].weight/d.weight).toFixed(2) + '%)');
                                         })
                                         .on('mouseout', function(d) {
                                             div.style('color', 'black')
@@ -1044,6 +1171,7 @@ function draw() {
                                             if(data.wordCloud[selectedNode.idx][i].clicked == false) {
                                                 div.classed('clicked', false);
                                             }
+                                            tooltip.style('visibility', 'hidden')
                                         })
                                         .on('click', function(d) {
 
@@ -1185,21 +1313,6 @@ function draw() {
     //     .attr('height', height)
     //     .style('fill', d3.rgb(255, 255, 255))
     //     .style("opacity", 0.8);
-
-    d3.select('body')
-        .append('div')
-        .classed('tooltip', true)
-        .style('position', 'absolute')
-        .style('visibility', 'visible')
-        .style('background-color', 'rgba(0, 0, 0, 0.5)')
-        .style('border', '0px')
-        .style('padding', '5px')
-        .style('min-width', '50px')
-        .style('height', '15px')
-        .style('font-size', '12px')
-        .style('color', 'white')
-        .style('line-height', '6px')
-        .style('text-align', 'center');
 
     addGui();
     drawLegend();
@@ -1567,6 +1680,43 @@ function addGui() {
     var gui = new dat.GUI({ autoPlace: false });
     var customContainer = $('.gui').append($(gui.domElement));
     var svg = d3.select('svg');
+   
+    var topicNum = gui.add(gui_elements, 'topic').min(1).max(data.tw.length).step(1);
+    topicNum.__li.classList.remove('has-slider');
+    topicNum.domElement.getElementsByClassName('slider')[0].remove();
+    topicNum.domElement.getElementsByTagName('input')[0]
+                        .addEventListener('mousedown', function(event) { 
+                            event.stopPropagation();
+                        }, true);
+
+    var input = topicNum.domElement.getElementsByTagName('input')[0];
+    input.addEventListener('keydown', function(event) {
+        if(event.keyCode !== 13) return;
+
+        var i = gui_elements.topic;
+        var node = svg.select('.node[id=\'node-' + (i - 1) + '\']');
+        var rect = node.select('rect[id=\'' + (i - 1) + '\']');
+        node.moveToFront();
+
+        rect.transition().duration(2000)
+            .styleTween('stroke-width', function() { return d3.interpolate(6, 0); })
+
+        var matrixBase = node.node().transform.baseVal[0].matrix;
+
+        var g = svg.select('g');
+        var scale = lastTransform.k;
+        var translate = [centerX - matrixBase.e * scale, centerY - matrixBase.f * scale];
+
+        g.attr('transform', 'translate(' + translate + ')' + 
+                     ',scale(' + scale + ')');
+
+        lastTransform.x = translate[0];
+        lastTransform.y = translate[1];
+        lastTransform.k = scale;
+
+        event.stopPropagation();
+    }, true);
+
     var scaled = gui.add(gui_elements, 'scaled');
     
     if(typeof data.topic_scaled != 'undefined' ) {
@@ -1651,7 +1801,6 @@ function addGui() {
 
     });
 
-    // finds what topic bubbles include keywords and showing as a form of pie charts over a bubble
     searchInput = gui.add(gui_elements, 'search for words').onFinishChange(function(text) {
         text = text.toLowerCase();
         searchKeywords(text, false);             
