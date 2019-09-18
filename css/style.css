@@ -68,6 +68,10 @@ svg {
     font-size: 16px;
 }
 
+.wordbox {
+    padding: 2px;
+}
+
 .hidden {
     display: none;
 }
@@ -85,6 +89,44 @@ svg {
 .legend-search text {
     font-size: 13px;
     text-anchor: start;
+}
+
+.linkbox ul {
+    display: block;
+    list-style-type: decimal;
+    list-style-position: outside;
+    margin: 0;
+    padding-left: 30px;
+}
+
+.linkbox li {
+    margin-bottom: 10px;
+    background-color: transparent;
+}
+
+.linkbox li a{
+    color: black;
+}
+
+.linkbox li a:hover{
+    color: blue;
+}
+
+.linkbox::-webkit-scrollbar {
+    width: 10px;
+}
+
+.linkbox::-webkit-scrollbar-track {
+    display: none;
+}
+ 
+.linkbox::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+.linkbox::-webkit-scrollbar-thumb:hover {
+    background: #555; 
 }
 
 /*text.topic_word {

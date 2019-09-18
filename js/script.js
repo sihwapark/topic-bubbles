@@ -55,6 +55,7 @@ var jsonCachePath = "";
 
 var progressBarWidth;
 var progress;
+var tooltip;
 
 function load() {
     worker.fs = d3.map();
@@ -127,25 +128,25 @@ function load() {
         .style('dominant-baseline', 'central')
         .text('Loading data...');
 
-    load_data(data_folder[0] + files.topic_scaled, function(e, i) {
+    loadData(data_folder[0] + files.topic_scaled, function(e, i) {
         if (typeof i === 'string') {
-            set_topic_scaled(i);
+            setTopicScaled(i);
 
             progress.transition().duration(500).attr('width', function() {
                  return progressBarWidth * 0.25;
             });
 
-            load_data(data_folder[0] + files.tw, function(e, i) {
+            loadData(data_folder[0] + files.tw, function(e, i) {
                 if (typeof i === 'string') {
-                    set_tw(i);
+                    setTw(i);
 
                     progress.transition().duration(500).attr('width', function() {
                         return progressBarWidth * 0.50;
                     });
 
-                    load_data(data_folder[0] + files.dt, function(e, i) {
+                    loadData(data_folder[0] + files.dt, function(e, i) {
                         
-                        load_data(data_folder[0] + files.config, function(e, i) {
+                        loadData(data_folder[0] + files.config, function(e, i) {
 
                             if(typeof i === 'string') {
                                 var config = JSON.parse(i);
@@ -159,16 +160,16 @@ function load() {
                             return progressBarWidth * 0.75;
                         });
 
-                        set_dt(i, function(e) {
+                        setDt(i, function(e) {
                             if (e) {
-                                load_data(data_folder[0] + files.meta, function(e, i) {
+                                loadData(data_folder[0] + files.meta, function(e, i) {
                                     if (typeof i === 'string') {
                                        
                                         progress.transition().duration(500).attr('width', function() {
                                             return progressBarWidth * 1;
                                         }).on('end', function() {
                                             d3.select('.progress').remove();
-                                            set_meta(i);
+                                            setMeta(i);
                                         });
 
                                     } else {
@@ -191,12 +192,12 @@ function load() {
         }
     });
 
-    // load_data(data_folder[0] + files.auto_labels_unsupervised, function(e, i) {
+    // loadData(data_folder[0] + files.auto_labels_unsupervised, function(e, i) {
     //     if(typeof i === 'string') {
-    //         set_auto_labels(i, 'unsupervised');
-    //         load_data(data_folder[0] + files.auto_labels_supervised, function(e, i) {
+    //         setAutoLabels(i, 'unsupervised');
+    //         loadData(data_folder[0] + files.auto_labels_supervised, function(e, i) {
     //             if(typeof i === 'string') {
-    //                 set_auto_labels(i, 'supervised');
+    //                 setAutoLabels(i, 'supervised');
     //             } else {
     //                 console.log('Unable to load a file ' + files.auto_labels_supervised);
     //             }
@@ -208,7 +209,7 @@ function load() {
     // });
 };
 
-function load_data(e, t) {
+function loadData(e, t) {
     var i, n;
     if (typeof e === 'undefined') {
         return t('target undefined', undefined);
@@ -236,7 +237,7 @@ function load_data(e, t) {
     });
 };
 
-function set_dt(e, i) {
+function setDt(e, i) {
     if (typeof e !== 'string') {
         i(false)
     }
@@ -252,7 +253,7 @@ function set_dt(e, i) {
     });
 }
 
-function set_meta(e) {
+function setMeta(e) {
     var i = e.replace(/^\n*/, "").replace(/\n*$/, "\n");
     
     data.docs = d3.csvParseRows(i, function(e, i) {
@@ -282,7 +283,7 @@ function set_meta(e) {
     draw();
 }
 
-function set_tw(e) {
+function setTw(e) {
     var tw_json;
     
     if (typeof e !== 'string') {
@@ -308,14 +309,13 @@ function set_tw(e) {
             name: 'Topic ' + (n + 1),
             weight: v,
             alpha: tw_json.alpha[n],
-            words: w,
-            wordCloud: []
+            words: w
         }
         return t;
     }); 
 };  
 
-function set_topic_scaled(e) {
+function setTopicScaled(e) {
     var i;
     if (typeof e !== 'string') {
         return
@@ -327,7 +327,7 @@ function set_topic_scaled(e) {
     });
 };
 
-function set_auto_labels(e, type) {
+function setAutoLabels(e, type) {
     
     if (typeof e !== 'string') {
         return
@@ -382,15 +382,7 @@ function wrap(text, width) {
     });
 }
 
-function getTextWidth(text, fontSize, fontFace) {
-    var canvas = document.createElement('canvas');
-    var context = canvas.getContext('2d');
-    context.font = fontSize + 'px ' + fontFace;
-    
-    return context.measureText(text).width;
-} 
-
-function show_docs_list(topic_idx, docLayer) {
+function showDocsList(topic_idx, docLayer) {
 
     var leftX = minWordCloudSize * 0.5;
     var topY= -minWordCloudSize * 0.5;
@@ -403,68 +395,116 @@ function show_docs_list(topic_idx, docLayer) {
                                 citation: d
                             };
                 });
-    var totalLines = 0;
-    var lines = 0;
-    var tooltip = d3.select('.tooltip');
-    docLayer.selectAll('text.doc')
-            .data(docs).enter()
-                        .append('foreignObject')
-                            .attr('x',  leftX + 15)
-                            .attr('y', function(d, i) { 
-                                var text ='\"' + d.citation.title + '\", ' + d.citation.journal;
-                                var textWidth = getTextWidth(text, 12, 'Helvetica');
-                                lines = Math.floor(textWidth / (minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)) + 1;
+    
+    var svg = d3.select('svg');
+    var fo = docLayer.append('foreignObject')
+            .attr('x', leftX + 10)
+            .attr('y', topY + 40)
+            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)
+            .attr('height',minWordCloudSize * (expandedHeightScale) - 50)
+            .on('mouseover', function() { svg.on('.zoom', null); })
+            .on('mouseout', function() { 
+                if(gui_elements.scaled)
+                    setSacledZoom(svg);
+                else {
+                    svg.call(zoom.transform, lastTransform);
+                    setNormalZoom(svg); 
+                }                
+            });
 
-                                totalLines += lines;
-                                return topY + 30 + (i + 1) * 12  + (totalLines - lines) * 12; 
-                            })
-                            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)
-                            .attr('height', lines * 15 + 'px')
-                            .append('xhtml:div')
-                                .style('text-align', 'left')
-                                .style('font-size', '12px')
-                                .style('word-wrap', 'break-word')
-                                .on('mouseover', function(d) {
-                                    // tooltip.style('visibility', 'visible')
-                                    //         .style('left', (d3.event.pageX + 10) + 'px')
-                                    //         .style('top', (d3.event.pageY + 15) + 'px')
-                                    //         .html('Weight: ' + d.weight);
+    var div = fo.append('xhtml:div')
+                .attr('class', 'linkbox')
+                .style('font-size', '12px')
+                .style('overflow-y', 'auto')
+                .style('word-break', 'break-all')
+                .style('word-wrap', 'break-word')
+                //.style('background-color', d3.rgb(200, 200, 200, 0.9))
+                .style('height', '100%')
+                .html(function() {
+                    var html = "<ul>";
+                    for(var i = 0; i < docs.length; i++) {
+                        html += "<li id='" + topic_idx + "-" + i +"' onmouseover='showDocsWeights(); toggleWordsHighlight("+ topic_idx + "," + i + ", " + true + ");'" 
+                        + " onmouseleave='toggleWordsHighlight("+ topic_idx + "," + i + "," + false + ");'>"
+                        if(jsonCachePath != "")
+                           html += "<a href='" + jsonCachePath + docs[i].citation.doi + "' target='_blank'>";
 
-                                    if(jsonCachePath != "") d3.select(this)
-                                        .style('text-decoration', 'underline')
-                                        .style('cursor', 'pointer');
-                                })
-                                .on('mouseout', function(d) {
-                                    if(jsonCachePath != "") d3.select(this)
-                                        .style('text-decoration', 'none')
-                                        .style('cursor', 'default');
-                                })
-                                .on('click', function(d) {
-                                    if(jsonCachePath != "") window.open(jsonCachePath + d.citation.doi);
-                                })
-                                .html(function(d) { return '\"' + d.citation.title + '\", ' + d.citation.journal; });
+                        html += "<span>\"" + docs[i].citation.title + "\", " + docs[i].citation.journal + "</span>";
+                        
+                        if(jsonCachePath != "")
+                            html += "</a>";
+
+                        html += "</li>";
+                    }
+
+                    html += "</ul>";
+
+                    return html;
+                });
+}
+
+function showDocsWeights() {
 
 }
 
-function show_sources(topic_idx, sourceLayer) {
-    sources = [];
+function toggleWordsHighlight(topic_idx, docIndex, on) {
+    if(jsonCachePath == "") return;
+
+    var jsonPath = jsonCachePath + data.topic_docs[topic_idx].citations[docIndex].doi;
+    
+    var wordCloud = data.wordCloud[topic_idx].layer;
+    if(on) {
+        fetch(jsonPath).then(function(text) { 
+           text.json().then(function(json) { 
+                
+                var content = "";
+
+                if(typeof json['content'] != 'undefined') content = json['content'];
+                else if(typeof json['content-wiki-p10'] != 'undefined') content = json['content-wiki-p10'];
+                
+                data.wordCloud[topic_idx].words.forEach(function(w, i)  {
+                    
+                    if(content.search("\\b" + w.text + "\\b") != -1) {
+                        //console.log(w.text);
+                        wordCloud.select('div[id=\'' + i + '\']')
+                                .select('span')
+                                .style('background-color', d3.rgb(255, 100, 100, 0.7));
+                    }
+                });
+            });
+        });
+    } else {
+        data.wordCloud[topic_idx].words.forEach(function(w, i)  {
+            wordCloud.select('div[id=\'' + i + '\']')
+                    .select('span')
+                    .style('background-color', 'transparent');
+        });
+    }
+}
+
+function showSources(topic_idx, sourceLayer) {
+    var sources = [];
     data.topic_docs[topic_idx].citations.forEach(function(d, i) {
 
         var name = d.journal;
-        var substringIndex = name.indexOf(' (');
-        if(substringIndex != -1) name = name.slice(0, substringIndex);
-                
+        // var substringIndex = name.indexOf(' (');
+        // if(substringIndex != -1) name = name.slice(0, substringIndex);
         var s = sources.find(function(d) {
             return d.name == name;
         });
 
         if(typeof s === 'undefined') {
-            s = {name: name, weight: 0, index:[]};
+            s = {name: name, weight: 0, docsInfo:[], highlighted:false};
             sources.push(s);
         }
+        var w = data.topic_docs[topic_idx].docs[i].weight;
+        s.weight += w;
+        s.docsInfo.push({index:i, weight:w});
+    });
 
-        s.weight += data.topic_docs[topic_idx].docs[i].weight;
-        s.index.push(i);
+    sources.forEach(function(s) {
+        s.docsInfo.forEach(function(a){
+            a.ratio = a.weight / s.weight;
+        });
     });
 
     sources.sort(function(a, b) { return b.weight - a.weight; });
@@ -478,10 +518,6 @@ function show_sources(topic_idx, sourceLayer) {
             }))
             .padding(1);
     
-    var xAxis = sourceLayer.append('g')
-        .attr('transform', 'translate(-' + (minWordCloudSize * 0.30) + ', ' + (minWordCloudSize + 50) + ')')
-        .call(d3.axisBottom(x));
-
     var labelWrap = function() {
         var label = d3.select(this);
         var textLength = label.node().getComputedTextLength();
@@ -494,11 +530,35 @@ function show_sources(topic_idx, sourceLayer) {
         }
     }
 
+    var svg = d3.select('svg');
+    var xAxis = svg.append('g')
+        .attr('id', 'xAxis')
+        .attr('transform', 'translate(-' + (minWordCloudSize * 0.30) + ', ' + (minWordCloudSize + 50) + ')')
+        .call(d3.axisBottom(x));
+
     xAxis.selectAll('text')
-            .attr('transform', 'translate(-10, 0)rotate(-45)')
-            .style('font-size', '10px')
-            .style('text-anchor', 'end')
-            .each(labelWrap);
+        .attr('transform', 'translate(-10, 0)rotate(-45)')
+        .style('font-size', '10px')
+        .style('text-anchor', 'end')
+        .each(labelWrap);
+
+    sourceLayer.node().appendChild(xAxis.node().cloneNode(true));
+    xAxis.remove();
+
+    sourceLayer.select('g[id=\'xAxis\']')
+            .selectAll('.tick')
+            .on('mouseover', function(d, i) {
+                d3.select(this).select('text')
+                            .style('font-weight', 'bold')
+                            .style('cursor', 'default');
+                toggleDocsHighlight(topic_idx, sources[i].docsInfo, true);
+            })
+            .on('mouseleave', function(d, i) {
+                d3.select(this).select('text').style('font-weight', 'normal');
+                if(!sources[i].highlighted) {
+                    toggleDocsHighlight(topic_idx, sources[i].docsInfo, false);   
+                }
+            });
 
     var y = d3.scaleLinear()
             .domain([0, d3.max(weights) * 1.1])
@@ -517,8 +577,6 @@ function show_sources(topic_idx, sourceLayer) {
         .style('text-anchor', 'end')
         .text('Weight');
 
-    var tooltip = d3.select('.tooltip');
-
     g.selectAll('source-lines')
         .data(sources)
         .enter()
@@ -527,16 +585,7 @@ function show_sources(topic_idx, sourceLayer) {
             .attr('x2', function(d) { return x(d.name); })
             .attr('y1', function(d) { return y(d.weight); })
             .attr('y2', y(0))
-            .attr('stroke', 'grey')
-            .on('mouseover', function(d) {
-                tooltip.style('visibility', 'visible')
-                        .style('left', d3.event.pageX + 'px')
-                        .style('top', d3.event.pageY + 'px')
-                        .html(d.name);
-            })
-            .on('mouseleave', function(d) {
-                //tooltip.style('visibility', 'hidden');
-            });
+            .attr('stroke', 'grey');
 
     g.selectAll('source-circles')
         .data(sources)
@@ -549,16 +598,45 @@ function show_sources(topic_idx, sourceLayer) {
             .attr('stroke', 'black')
             .on('mouseover', function(d) {
                 tooltip.style('visibility', 'visible')
-                        .style('left', d3.event.pageX + 'px')
-                        .style('top', d3.event.pageY + 'px')
+                        .style('left', (d3.event.pageX + 10) + 'px')
+                        .style('top', (d3.event.pageY - 10) + 'px')
                         .html(d.name);
+                d3.select(this).style('stroke-width', 3)
+                                .style('cursor', 'pointer');
+                
+                toggleDocsHighlight(topic_idx, d.docsInfo, true);
+            })
+            .on('mousedown', function(d) {
+                d.highlighted = !d.highlighted;
+                d3.event.stopPropagation();
             })
             .on('mouseleave', function(d) {
-               // tooltip.style('visibility', 'hidden');
+                tooltip.style('visibility', 'hidden');
+                
+                if(!d.highlighted) {
+                    toggleDocsHighlight(topic_idx, d.docsInfo, false);
+                    d3.select(this).style('stroke-width', 1);
+                }
             });
 }
 
-function topic_docs(topic_idx, num, docListLayer, sourceLayer) {
+function toggleDocsHighlight(topic_idx, docs, on) {
+    //var svg = d3.select('svg');
+    console.log(docs);
+
+    docs.forEach(function(d) {
+        var li = d3.select('li[id=\'' + topic_idx + '-' + d.index + '\']');
+        if(on)
+            li.classed('highlighted', true)
+                .style('font-weight', 'bold')
+                .style('background-color', d3.rgb(0, 200, 255, 0.9 * d.ratio + 0.1));
+        else li.classed('highlighted', false)
+                .style('font-weight', 'normal')
+                .style('background-color', 'transparent');
+    });
+}
+
+function topicDocs(topic_idx, num, docListLayer, sourceLayer) {
     if(typeof data.topic_docs === 'undefined')
         data.topic_docs = {};
     
@@ -566,8 +644,8 @@ function topic_docs(topic_idx, num, docListLayer, sourceLayer) {
         data.topic_sources = {};
 
     if(typeof data.topic_docs[topic_idx] != 'undefined') {
-        show_docs_list(topic_idx, docListLayer);
-        show_sources(topic_idx, sourceLayer);
+        showDocsList(topic_idx, docListLayer);
+        showSources(topic_idx, sourceLayer);
         return;
     }
 
@@ -584,8 +662,8 @@ function topic_docs(topic_idx, num, docListLayer, sourceLayer) {
             })
         };
 
-        show_docs_list(topic_idx, docListLayer);
-        show_sources(topic_idx, sourceLayer);
+        showDocsList(topic_idx, docListLayer);
+        showSources(topic_idx, sourceLayer);
     }
 
     worker.callback("topic_docs/" + topic_idx + "/" + num, result);
@@ -597,28 +675,25 @@ function topic_docs(topic_idx, num, docListLayer, sourceLayer) {
 }
 
 function ticked() {
-
     var svg = d3.select('svg');
     var node = svg.selectAll('.node')
     
     if(gui_elements.scaled == false) {
         node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
-
-    } else {
-        node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });       
     }
-
-    //console.log(node.filter((l,i) => l.idx == 45).data()[0]);
+    
+    // console.log(node.filter((l,i) => l.idx == 53).data()[0]);
 
     node.select('rect')
-    .attr('rx', function(d) { return d.r * d.borderRatio; })
-    .attr('ry', function(d) { return d.r * d.borderRatio; })
-    .attr('width', function(d) { return (d.expanded)? minWordCloudSize * expandedWidthScale : d.r * 2; })
-    .attr('height', function(d) { return (d.expanded)? minWordCloudSize * expandedHeightScale : d.r * 2; })
-    .attr('x', function(d) { return d.r * -1; })
-    .attr('y', function(d) { return d.r * -1; })
-    .style('fill', function(d) { return scaleColor(scaleValue(d.value)); });
+        .attr('rx', function(d) { return d.r * d.borderRatio; })
+        .attr('ry', function(d) { return d.r * d.borderRatio; })
+        .attr('width', function(d) { return (d.expanded)? minWordCloudSize * expandedWidthScale : d.r * 2; })
+        .attr('height', function(d) { return (d.expanded)? minWordCloudSize * expandedHeightScale : d.r * 2; })
+        .attr('x', function(d) { return d.r * -1; })
+        .attr('y', function(d) { return d.r * -1; })
+        .style('fill', function(d) { return scaleColor(scaleValue(d.value)); });
     // .style('fill', function(d) { return scaleColor(scaleValue(coloringByKeyword? valueByKeyword[d.idx].value : d.value)));
+    //
 }
 
 function init() {
@@ -736,7 +811,7 @@ function draw() {
     lastTransform = d3.zoomIdentity;
     setNormalZoom(svg);
 
-    var tooltip = d3.select('body')
+    tooltip = d3.select('body')
         .append('div')
         .classed('tooltip', true)
         .style('position', 'absolute')
@@ -801,8 +876,13 @@ function draw() {
     
     node.append('clipPath')
         .attr('id', function(d) { return "clip-" + d.idx; })
-        .append('use')
-        .attr('xlink:href', function(d) { return "#" + d.idx; });
+        .append('rect')
+            .attr('rx', function(d) { return d.radius * d.borderRatio; })
+            .attr('ry', function(d) { return d.radius * d.borderRatio; })
+            .attr('width', function(d) { return d.radius * 2; })
+            .attr('height', function(d) { return d.radius * 2; })
+            .attr('x', function(d) { return d.radius * -1; })
+            .attr('y', function(d) { return d.radius * -1; });
 
     // node.append('text')
     //     .classed('topic_name', true)
@@ -822,13 +902,19 @@ function draw() {
                     if(d.clicked) return;
 
                     tooltip.style('visibility', 'visible')
-                            .style('left', d3.event.pageX + 'px')
-                            .style('top', d3.event.pageY + 'px')
+                            .style('left', (d3.event.pageX + 5) + 'px')
+                            .style('top', (d3.event.pageY + 5) + 'px')
                             .html(d.value.toFixed(4));
                     var rect = node.select('rect[id=\'' + d.idx + '\']');
                     rect.style('stroke-width', 3);
                 })
-                .on('mouseleave', function(d) {
+                .on('mousemove', function(d) {
+                    if(d.clicked) return;
+
+                    tooltip.style('left', (d3.event.pageX + 5) + 'px')
+                            .style('top', (d3.event.pageY + 5) + 'px');
+                })
+                .on('mouseleave', function(d) {                    
                     tooltip.style('visibility', 'hidden');
                     var rect = node.select('rect[id=\'' + d.idx + '\']');
                     rect.style('stroke-width', 0);
@@ -859,6 +945,14 @@ function draw() {
         });
     };
 
+    // based on https://stackoverflow.com/questions/38224875/replacing-d3-transform-in-d3-v4/38230545#38230545
+    d3.selection.prototype.getTranslation = function() {
+        var transform = this.attr('transform')
+        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttributeNS(null, 'transform', transform);
+        var matrix = g.transform.baseVal.consolidate().matrix;
+        return [matrix.e, matrix.f];
+    }
 
     // Word Cloud Implementation
     // based on Jason Davies's library, https://github.com/jasondavies/d3-cloud
@@ -1019,10 +1113,9 @@ function draw() {
             .style('fill', 'black')
             .style('cursor', 'pointer');
 
-
     expandButton.on('click', function(selectedNode) {
                 let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
-                toggleFullView(selectedNode, selectedTarget)
+                toggleFullView(selectedNode, selectedTarget);
             });
 
     leftX = minWordCloudSize * 0.5;
@@ -1079,7 +1172,7 @@ function draw() {
     topY= minWordCloudSize * 0.5;    
 
     let sources = node.append('g')
-                        .classed('source-view hidden', true)
+                        .classed('source-view hidden', true);
 
     sources.append('rect')
             .attr('x', leftX + 2)
@@ -1104,15 +1197,38 @@ function draw() {
                 .style('cursor', 'default')
                 .html('Sources of Top 20 Documents');
 
+    var lastTarget = null;
     node.on('click', function(selectedNode) {
         let currentTarget = d3.event.currentTarget;
-        d3.select(currentTarget).moveToFront();
+        
+        //window.location.hash = 'clicked_' + selectedNode.idx;
+        if(lastTarget != currentTarget) {
+            d3.select(currentTarget).moveToFront();
+            if(lastTarget != null) {
+                
+                var linkbox = d3.select(lastTarget).select('.linkbox').node();
+                var nodeData = d3.select(lastTarget).data()[0];
+                nodeData.scrollTop = linkbox.scrollTop;
 
-        if(selectedNode.clicked == true) return;
+                d3.select(lastTarget).select('.linkbox').style('overflow-y', 'hidden');
+            }
+            
+            d3.select(currentTarget).select('.linkbox').style('overflow-y', 'auto');
+
+            if(typeof selectedNode.scrollTop != 'undefined'){
+                var linkbox = d3.select(currentTarget).select('.linkbox').node();
+                linkbox.scrollTop = selectedNode.scrollTop;
+            }
+        }
+        lastTarget = currentTarget;
+
+         if(selectedNode.clicked == true) return;
 
         selectedNode.clicked = true;
-        //window.location.hash = 'clicked_' + selectedNode.idx;
 
+        var rect = node.select('rect[id=\'' + selectedNode.idx + '\']');
+        rect.style('stroke-width', 0);
+        
         if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
             //console.log(selectedNode.idx + ' word cloud layout started');
 
@@ -1132,30 +1248,33 @@ function draw() {
                     .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
                     .fontSize(function(w) { return w.size; })
                     .on('end', function(words) {
-                        data.wordCloud[selectedNode.idx] = words;
+                        data.wordCloud[selectedNode.idx] = {words: words};
                         //console.log(selectedNode.idx + ' word cloud layout ended');
 
                         var layer = wordCloudLayer.filter(function(l,i) { return (l.idx == selectedNode.idx); })
                                                     .append('g')
                                                     .attr('id', 'words');
                                                     
-                        
-                        data.wordCloud[selectedNode.idx].forEach(function(w, i) {
-                            data.wordCloud[selectedNode.idx][i].clicked = false;
+                        data.wordCloud[selectedNode.idx].layer = layer;
+
+                        data.wordCloud[selectedNode.idx].words.forEach(function(w, i) {
+                            data.wordCloud[selectedNode.idx].words[i].clicked = false;
 
                             var fo = layer.append('foreignObject')
                                     .attr('transform', 
-                                        'translate(' + [w.x - w.width * 0.5, 20 + w.y - w.height * 0.4] + ')rotate(' + w.rotate + ')')   
+                                        'translate(' + [w.x - w.width * 0.5, 20 + w.y - w.height * 0.5] + ')rotate(' + w.rotate + ')')   
                                     .attr('width', w.width)
-                                    .attr('height', w.height);
-
+                                    .attr('height', w.height)
+                                    .style('line-height', w.height + 'px');
                            
                             var div = fo.append('xhtml:div')
-                                        .style('line-height', w.size + 'px')
+                                        .attr('id', i)
                                         .style('cursor', 'pointer')
                                         .style('text-align', 'center')
                                         .style('font-size', w.size + 'px')
-                                        .html(w.text)
+                                        .attr('width', w.width * 0.5)
+                                        .attr('height', w.height * 0.5)
+                                        .html('<span class=\'wordbox\'>' + w.text + '</span>')
                                         .on('mouseover', function(d) {
                                             
                                             div.style('color', 'blue');
@@ -1168,7 +1287,7 @@ function draw() {
                                         .on('mouseout', function(d) {
                                             div.style('color', 'black')
 
-                                            if(data.wordCloud[selectedNode.idx][i].clicked == false) {
+                                            if(data.wordCloud[selectedNode.idx].words[i].clicked == false) {
                                                 div.classed('clicked', false);
                                             }
                                             tooltip.style('visibility', 'hidden')
@@ -1178,9 +1297,9 @@ function draw() {
                                             // if(data.searchedWords.length > 0)
                                             //     clickedWords = data.searchedWords;
 
-                                            data.wordCloud[selectedNode.idx][i].clicked = !data.wordCloud[selectedNode.idx][i].clicked;
+                                            data.wordCloud[selectedNode.idx].words[i].clicked = !data.wordCloud[selectedNode.idx].words[i].clicked;
                                             
-                                            if(data.wordCloud[selectedNode.idx][i].clicked) {
+                                            if(data.wordCloud[selectedNode.idx].words[i].clicked) {
                                                 if(data.searchedWords.indexOf(w.text) == -1) data.searchedWords.push(w.text);
                                                 div.style('color', 'black')
                                                     .classed('clicked', true);
@@ -1199,7 +1318,7 @@ function draw() {
                                 if(typeof data.searchedWords != 'undefined' && 
                                     data.searchedWords.indexOf(w.text) != -1) {
 
-                                    data.wordCloud[selectedNode.idx][i].clicked = true;
+                                    data.wordCloud[selectedNode.idx].words[i].clicked = true;
                                     div.classed('clicked', true);
                                 }
                         });
@@ -1260,18 +1379,17 @@ function draw() {
                 // 
                 var docListLayer = docLists.filter(function(l,i) { return (l.idx == selectedNode.idx); });
                 var sourceLayer = sources.filter(function(l,i) { return (l.idx == selectedNode.idx); });
-                topic_docs(selectedNode.idx, 20, docListLayer, sourceLayer);
+                topicDocs(selectedNode.idx, 20, docListLayer, sourceLayer);
         }
 
         d3.event.stopPropagation();
         
         d3.select(currentTarget).selectAll('.arc').classed('hidden', true);
-
         let currentGroup = d3.select(currentTarget);
 
         d3.transition().duration(500).ease(d3.easePolyOut)
             .tween('circleToRect', function() {
-                d3.select(currentTarget).moveToFront();
+                //d3.select(currentTarget).moveToFront();
 
                 let ir = d3.interpolateNumber(selectedNode.r, minWordCloudSize * 0.5);
                 let irBorder = d3.interpolateNumber(selectedNode.borderRatio, 0.1);
@@ -1280,7 +1398,17 @@ function draw() {
                     selectedNode.r = ir(t);
                     selectedNode.borderRatio = irBorder(t);
 
-                    simulation.force('collide', forceCollide);
+                    if(gui_elements.scaled) {
+                        d3.select(currentTarget).select('rect')
+                                .attr('rx', function(d) { return d.r * d.borderRatio; })
+                                .attr('ry', function(d) { return d.r * d.borderRatio; })
+                                .attr('width', function(d) { return (d.expanded)? minWordCloudSize * expandedWidthScale : d.r * 2; })
+                                .attr('height', function(d) { return (d.expanded)? minWordCloudSize * expandedHeightScale : d.r * 2; })
+                                .attr('x', function(d) { return d.r * -1; })
+                                .attr('y', function(d) { return d.r * -1; })
+                                .style('fill', function(d) { return scaleColor(scaleValue(d.value)); });
+                        
+                    } else simulation.force('collide', forceCollide);
                 };
             })
             .on('end', function() {
@@ -1288,6 +1416,7 @@ function draw() {
                     
                     currentGroup.select('.wordcloud-overlay').classed('hidden', false);
                     currentGroup.select('.topic_name').classed('hidden', true);
+                    
             })
             .on('interrupt', function() {
                     //console.log('move interrupt', selectedNode);
@@ -1357,7 +1486,7 @@ function toggleFullView(node, target){
 
                 rect.attr('width', irWidth(t));
                 rect.attr('height', irHeight(t));
-                simulation.force('collide', forceCollide);
+                if(gui_elements.scaled == false) simulation.force('collide', forceCollide);
             };
         })
         .on('end', function(){
@@ -1386,7 +1515,6 @@ function closeBubble(node, target){
         .duration(500)
         .ease(d3.easePolyOut)
         .tween('rectToCircle', function() {
-            //console.log('tweenMoveOut', focusedNode);
             let ir = d3.interpolateNumber(node.r, node.radius);
             let irlBorder = d3.interpolateNumber(node.borderRatio, 1);
 
@@ -1396,21 +1524,30 @@ function closeBubble(node, target){
                 node.r = ir(t);
                 node.borderRatio = irlBorder(t);
                 
-                simulation.force('collide', forceCollide);
+                if(gui_elements.scaled) {
+                    target.select('rect')
+                            .attr('rx', function(d) { return d.r * d.borderRatio; })
+                            .attr('ry', function(d) { return d.r * d.borderRatio; })
+                            .attr('width', function(d) { return (d.expanded)? minWordCloudSize * expandedWidthScale : d.r * 2; })
+                            .attr('height', function(d) { return (d.expanded)? minWordCloudSize * expandedHeightScale : d.r * 2; })
+                            .attr('x', function(d) { return d.r * -1; })
+                            .attr('y', function(d) { return d.r * -1; })
+                            .style('fill', function(d) { return scaleColor(scaleValue(d.value)); });
+                    
+                } else simulation.force('collide', forceCollide);
             };
         })
         .on('end', function(){
-
             target.select('.topic_name').classed('hidden', false);
             target.selectAll('.arc').classed('hidden', false);
-            //d3.select(focusedNode).moveToBack();
-            
-            // focusedNode = null;
-            // focusedTarget = null;
+
             simulation.alphaTarget(0);
             node.clicked = false;
         })
         .on('interrupt', function() {
+            target.select('.topic_name').classed('hidden', false);
+            target.selectAll('.arc').classed('hidden', false);
+
             simulation.alphaTarget(0);
             node.clicked = false;
         });
@@ -1442,14 +1579,15 @@ function setSacledZoom(svg) {
     zoom.scaleExtent([1, 15])
         .on('zoom', function() {
             var transform = d3.event.transform;
-            var scaledX, scaledY;
+            var newX, newY;
             
             nodes.transition().duration(1)
                 .attr('transform', function(d) {
-                    scaledX = transform.applyX(xScale(d.x));
-                    scaledY = transform.applyY(yScale(d.y));
+                    newX = transform.applyX(xScale(d.scaledInitX));
+                    newY = transform.applyY(yScale(d.scaledInitY));
 
-                    return 'translate(' + [scaledX, scaledY ] + ')';
+                    //console.log(d.idx, d.x, d.y, scaledX, scaledY);
+                    return 'translate(' + [newX, newY] + ')';
                 });
         });
 
@@ -1459,9 +1597,9 @@ function setSacledZoom(svg) {
 var searchLegend = d3.legendColor().labelOffset(10).title('Search Result');
 var searchLegendColor = d3.scaleOrdinal();
 
-function searchKeywords(keywords, splited) {
+function searchKeywords(keywords, splitted) {
     
-    if(splited == false) {
+    if(splitted == false) {
         if(keywords == '' || keywords.replace(/\+/g, '') == '') keywords = [];
         else {
             keywords = keywords.split('+').filter(function(element){
@@ -1488,8 +1626,6 @@ function searchKeywords(keywords, splited) {
 
     let isKeywordEmpty = (keywords.length == 0);
     
-    console.log(keywords);
-
     var arc = d3.arc();
 
     var rect = svg.selectAll('.node rect[id]');
@@ -1542,20 +1678,14 @@ function searchKeywords(keywords, splited) {
 
     rect.transition().duration(1000).ease(d3.easeElasticOut)
         .tween('circleSearch', function(d) {
-            // possible states
-            // no click, no result              --> dst = 0, borderRatio 1 -> 1
-            // no click, result/isKeywordEmpty  --> dst = sacaldeRadius(d.value), borderRatio 1 -> 1
-            // click, no result                 --> dst = 0, borderRatio 0.1 -> 1, wordcloud hidden
-            // click, result                    --> dst = src, borderRatio 0.1 -> 0.1, wordcloud visible
-
             var src = d.r;
-            let hasResult = (isKeywordEmpty == false && result[d.idx].length > 0);
+            let hasResult = (typeof result[d.idx] != 'undefined' && result[d.idx].length > 0);
 
             d.radius = (isKeywordEmpty || hasResult)? scaleRadius(d.value) : 0;
-            var dst = (d.clicked && hasResult)? src : d.radius;
+            var dst = ((d.clicked && hasResult) || (d.clicked && isKeywordEmpty))? src : d.radius;
             let i = d3.interpolateNumber(src, dst);
 
-            var borderTarget = (d.clicked && hasResult)? 0.1: 1;
+            var borderTarget = ((d.clicked && hasResult) || (d.clicked && isKeywordEmpty))? 0.1: 1;
             let irBorder = d3.interpolateNumber(d.borderRatio, borderTarget);
 
             var parentNode = d3.select(this.parentNode);
@@ -1566,7 +1696,7 @@ function searchKeywords(keywords, splited) {
             texts.classed('clicked', false);
             
             if(typeof data.wordCloud[d.idx] != 'undefined') {
-                data.wordCloud[d.idx].forEach(function(w, i) {
+                data.wordCloud[d.idx].words.forEach(function(w, i) {
                     w.clicked = false;
                 });
             }
@@ -1577,7 +1707,7 @@ function searchKeywords(keywords, splited) {
             }
             
             //hide a clicked bubble if it has no search keyword
-            if(d.clicked && hasResult == false) {
+            if(d.clicked && hasResult == false && isKeywordEmpty == false) {
                 
                 if(d.expanded) {
                     toggleFullView(d, parentNode);
@@ -1595,19 +1725,23 @@ function searchKeywords(keywords, splited) {
                     text.classed('clicked', true);
                     
                     if(typeof data.wordCloud[d.idx] != 'undefined') {
-                        data.wordCloud[d.idx][v.index].clicked = true;
+                        data.wordCloud[d.idx].words[v.index].clicked = true;
                     }
-
+                    
                     // console.log(v); 
                 });
-            }
+
+                parentNode.select('.topic_name').classed('hidden', false);
+            } else {
+                parentNode.select('.topic_name').classed('hidden', (isKeywordEmpty == false)? true: false);
+            } 
 
             return function(t) {
                 d.r = i(t);
                 if(d.r < 0) d.r = 0;
                 d.borderRatio = irBorder(t);
 
-                simulation.force('collide', forceCollide);
+                if(gui_elements.scaled == false) simulation.force('collide', forceCollide);
             }
         })
         .on('end', function(t) {
@@ -1649,24 +1783,8 @@ function searchKeywords(keywords, splited) {
             start = end;  
         });
     });
-    // arcPath.transition().duration(1000)
-    //         .attrTween('d', (d) => {
-    //             let newAngle = isKeywordEmpty? 0 : 2 * Math.PI * result[0][d.idx].value;
-    //             let i = d3.interpolateNumber(d.endAngle, newAngle);
-
-    //             return (t) => {
-    //                 d.endAngle = i(t);
-                    
-    //                 return arc({
-    //                       innerRadius: 0,
-    //                       outerRadius: d.radius,
-    //                       startAngle: 0,
-    //                       endAngle: d.endAngle
-    //                     });
-    //             }
-    //         });
     
-    simulation.alphaTarget(0.2).restart();   
+    simulation.alphaTarget(0.2).restart();
 }
 
 function clearSearch() {
@@ -1693,7 +1811,7 @@ function addGui() {
     input.addEventListener('keydown', function(event) {
         if(event.keyCode !== 13) return;
 
-        var i = gui_elements.topic;
+        var i = input.value;
         var node = svg.select('.node[id=\'node-' + (i - 1) + '\']');
         var rect = node.select('rect[id=\'' + (i - 1) + '\']');
         node.moveToFront();
@@ -1701,11 +1819,10 @@ function addGui() {
         rect.transition().duration(2000)
             .styleTween('stroke-width', function() { return d3.interpolate(6, 0); })
 
-        var matrixBase = node.node().transform.baseVal[0].matrix;
-
+        var nodeTranslate = node.getTranslation();
         var g = svg.select('g');
         var scale = lastTransform.k;
-        var translate = [centerX - matrixBase.e * scale, centerY - matrixBase.f * scale];
+        var translate = [centerX - nodeTranslate[0] * scale, centerY - nodeTranslate[1] * scale];
 
         g.attr('transform', 'translate(' + translate + ')' + 
                      ',scale(' + scale + ')');
@@ -1726,25 +1843,25 @@ function addGui() {
 
             if(gui_elements.scaled) {
 
-                simulation.stop();
+                //simulation.stop();
                 // simulation.nodes([]);
                 simulation.force('collide', null);
 
-                data.topic_scaled.forEach(function(scaled, i) {
+                data.topic_scaled.forEach(function(scaleRatio, i) {
 
                     var node = nodes.filter(function(l) { return (l.idx == i);} )
                         node.transition().duration(1000)
                             .attr('transform', function(d) {
-                                 return 'translate(' + [centerX + width * scaled[0], centerY - height * scaled[1]] + ')'
+                                 return 'translate(' + [centerX + width * scaleRatio[0], centerY - height * scaleRatio[1]] + ')'
                             })
                             .on('end', function(d) {
-                                d.x = centerX + width * scaled[0];
-                                d.y = centerY - height * scaled[1];
+                                d.scaledInitX = centerX + width * scaleRatio[0];
+                                d.scaledInitY = centerY - height * scaleRatio[1];
                                 setSacledZoom(svg);
                             })
                             .on('interrupt', function(d) {
-                                d.x = centerX + width * scaled[0];
-                                d.y = centerY - height * scaled[1];     
+                                d.scaledInitX = centerX + width * scaleRatio[0];
+                                d.scaledInitY = centerY - height * scaleRatio[1];
                                 setSacledZoom(svg);
                             });
                 });
@@ -1771,22 +1888,24 @@ function addGui() {
 
         drawLegend();
 
-        var rect = svg.selectAll('.node rect[id]')
-        
+        var rect = svg.selectAll('.node rect[id]');
+        var arcPath = svg.selectAll('.node path[id]');
+
         simulation.alphaTarget(0.2).restart();
 
         rect.transition().duration(1000).ease(d3.easeElasticOut)
                 .tween('circleResize', function(d) {
                     var src = d.r;
                     d.radius = scaleRadius(d.value);
-                    var dst = (d.clicked)? src : d.radius;
+                    var dst = (d.clicked || src == 0)? src : d.radius;
                     
                     let i = d3.interpolateNumber(src, dst);
 
                     return function(t) {
 
                         d.r = i(t);
-                        simulation.force('collide', forceCollide);
+
+                        if(gui_elements.scaled == false) simulation.force('collide', forceCollide);
                     }
                 })
                 .on('end', function(t) {
@@ -1799,6 +1918,9 @@ function addGui() {
                     simulation.alphaTarget(0);
                 });
 
+        if(arcPath._groups[0].length > 0) {
+            searchKeywords(data.searchedWords, true);
+        }
     });
 
     searchInput = gui.add(gui_elements, 'search for words').onFinishChange(function(text) {
