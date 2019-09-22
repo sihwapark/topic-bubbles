@@ -398,6 +398,7 @@ function showDocsList(topic_idx, docLayer) {
     
     var svg = d3.select('svg');
     var fo = docLayer.append('foreignObject')
+            .attr('class', 'fo-list')
             .attr('x', leftX + 10)
             .attr('y', topY + 40)
             .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)
@@ -426,7 +427,7 @@ function showDocsList(topic_idx, docLayer) {
                         html += "<li id='" + topic_idx + "-" + i +"' onmouseover='showDocsWeights(); toggleWordsHighlight("+ topic_idx + "," + i + ", " + true + ");'" 
                         + " onmouseleave='toggleWordsHighlight("+ topic_idx + "," + i + "," + false + ");'>"
                         if(jsonCachePath != "")
-                           html += "<a href='" + jsonCachePath + docs[i].citation.doi + "' target='_blank'>";
+                           html += "<a href=\"\" onclick='openDocViewer(" + topic_idx + "," + i + "); return false;'>";
 
                         html += "<span>\"" + docs[i].citation.title + "\", " + docs[i].citation.journal + "</span>";
                         
@@ -442,6 +443,104 @@ function showDocsList(topic_idx, docLayer) {
                 });
 }
 
+function closeDocViewer(topic_idx) {
+    let node = d3.select('svg .node[id=\'node-' + topic_idx +'\']');
+    var docViewer = node.select('.doc-viewer');
+    var docList = node.select('.doc-list');
+    var fo = node.select('.fo-json');
+
+    if(docViewer.classed('hidden') == false) {
+        var drawer = docViewer.select('.viewer-drawer');
+        drawer.classed('hidden', true);
+        docList.select('.fo-list')
+                .attr('height', minWordCloudSize * (expandedHeightScale) - 50);                
+
+        d3.transition().duration(100).ease(d3.easePolyOut)
+                .tween('circleToRect', function() {
+                    //d3.select(currentTarget).moveToFront();
+                    let srcHeight = docViewer.select('rect').attr('height');
+                    let dstHeight = 0;
+                    let srcY =  minWordCloudSize * (expandedHeightScale - 0.5) - 2
+                    let ir = d3.interpolateNumber(srcHeight, dstHeight);
+                    
+                    drawer.attr('transform', 'translate(0,' + (dstHeight) + ')');  
+
+                    return function(t) {
+                        let height = ir(t);
+                        docViewer.select('rect').attr('y', srcY - height)
+                                                .attr('height', height);
+
+                        fo.attr('y', srcY - height)
+                            .attr('height', height);
+                    };
+                })
+                .on('end', function() {
+                    docViewer.classed('hidden', true);
+                    fo.classed('hidden', true);
+                    
+                })
+                .on('interrupt', function() {
+                    docViewer.classed('hidden', true);
+                    fo.classed('hidden', true);
+    
+                });
+    }
+}
+
+function openDocViewer(topic_idx, docIndex) {
+    let node = d3.select('svg .node[id=\'node-' + topic_idx +'\']');
+    var docViewer = node.select('.doc-viewer');
+    var docList = node.select('.doc-list');
+    var fo = node.select('.fo-json');
+    var div = fo.select('div');
+
+    if(docViewer.classed('hidden')) {
+        docViewer.classed('hidden', false);
+        fo.classed('hidden', false);
+
+        var drawer = docViewer.select('.viewer-drawer');
+
+        d3.transition().duration(200).ease(d3.easePolyOut)
+                .tween('circleToRect', function() {
+                    //d3.select(currentTarget).moveToFront();
+                    let srcHeight = docViewer.select('rect').attr('height');
+                    let dstHeight = minWordCloudSize * expandedHeightScale * 0.8;
+                    let srcY =  minWordCloudSize * (expandedHeightScale - 0.5) - 2
+                    let ir = d3.interpolateNumber(srcHeight, dstHeight);
+                    
+                    drawer.attr('transform', 'translate(0,' + (-dstHeight) + ')');  
+
+                    return function(t) {
+                        let height = ir(t);
+                        docViewer.select('rect').attr('y', srcY - height)
+                                                .attr('height', height);
+
+                        fo.attr('y', srcY - height + 25)
+                            .attr('height', height - 30);
+                    };
+                })
+                .on('end', function() {
+                    drawer.classed('hidden', false);
+                    docList.select('.fo-list')
+                            .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
+                    if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+                        $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+
+                })
+                .on('interrupt', function() {
+                    drawer.classed('hidden', false);
+                    docList.select('.fo-list')
+                            .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
+                    if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+                        $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+                });
+    } else {
+
+        if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+            $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+    }
+}
+
 function showDocsWeights() {
 
 }
@@ -449,29 +548,48 @@ function showDocsWeights() {
 function toggleWordsHighlight(topic_idx, docIndex, on) {
     if(jsonCachePath == "") return;
 
-    var jsonPath = jsonCachePath + data.topic_docs[topic_idx].citations[docIndex].doi;
-    
     var wordCloud = data.wordCloud[topic_idx].layer;
     if(on) {
-        fetch(jsonPath).then(function(text) { 
-           text.json().then(function(json) { 
-                
-                var content = "";
-
-                if(typeof json['content'] != 'undefined') content = json['content'];
-                else if(typeof json['content-wiki-p10'] != 'undefined') content = json['content-wiki-p10'];
-                
-                data.wordCloud[topic_idx].words.forEach(function(w, i)  {
+        if(typeof data.topic_docs[topic_idx].docs[docIndex].json == 'undefined') {
+            var jsonPath = jsonCachePath + data.topic_docs[topic_idx].citations[docIndex].doi;
+            fetch(jsonPath).then(function(text) { 
+               text.json().then(function(json) { 
                     
-                    if(content.search("\\b" + w.text + "\\b") != -1) {
-                        //console.log(w.text);
-                        wordCloud.select('div[id=\'' + i + '\']')
-                                .select('span')
-                                .style('background-color', d3.rgb(255, 100, 100, 0.7));
-                    }
+                    data.topic_docs[topic_idx].docs[docIndex].json = json;
+                    var content = "";
+
+                    if(typeof json['content'] != 'undefined') content = json['content'];
+                    else if(typeof json['content-wiki-p10'] != 'undefined') content = json['content-wiki-p10'];
+                    
+                    data.wordCloud[topic_idx].words.forEach(function(w, i)  {
+                        
+                        if(content.search("\\b" + w.text + "\\b") != -1) {
+                            //console.log(w.text);
+                            wordCloud.select('div[id=\'' + i + '\']')
+                                    .select('span')
+                                    .style('background-color', d3.rgb(255, 100, 100, 0.7));
+                        }
+                    });
                 });
             });
-        });
+        } else {
+            var json = data.topic_docs[topic_idx].docs[docIndex].json;
+            var content = "";
+
+            if(typeof json['content'] != 'undefined') content = json['content'];
+            else if(typeof json['content-wiki-p10'] != 'undefined') content = json['content-wiki-p10'];
+            
+            data.wordCloud[topic_idx].words.forEach(function(w, i)  {
+                
+                if(content.search("\\b" + w.text + "\\b") != -1) {
+                    //console.log(w.text);
+                    wordCloud.select('div[id=\'' + i + '\']')
+                            .select('span')
+                            .style('background-color', d3.rgb(255, 100, 100, 0.7));
+                }
+            });
+
+        }
     } else {
         data.wordCloud[topic_idx].words.forEach(function(w, i)  {
             wordCloud.select('div[id=\'' + i + '\']')
@@ -959,7 +1077,7 @@ function draw() {
 
     let wordCloudLayer = node.append('g')
                             .classed('wordcloud-overlay hidden', true);
-    let leftX = topY= -minWordCloudSize * 0.5;
+    let leftX = topY = -minWordCloudSize * 0.5;
     let rightX = minWordCloudSize * 0.5;
 
     wordCloudLayer.append('rect')
@@ -1143,7 +1261,7 @@ function draw() {
     //     });
 
     let docLists = node.append('g')
-                        .classed('doc-list hidden', true)
+                        .classed('doc-list hidden', true);
 
     docLists.append('rect')
             .attr('x', leftX)
@@ -1152,7 +1270,7 @@ function draw() {
             .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
             .attr('height', minWordCloudSize * expandedHeightScale - 4)
             .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2)
-            .style('fill', d3.rgb(255, 255, 255, 0.8));
+            .style('fill', d3.rgb(255, 255, 255, 0.9));
 
     var fo = docLists.append('foreignObject')
             .attr('x', leftX + (minWordCloudSize * (expandedWidthScale - 1) - 2) * 0.5 - 125)
@@ -1168,9 +1286,70 @@ function draw() {
                 .style('cursor', 'default')
                 .html('Top 20 Documents');
 
-    leftX = -minWordCloudSize * 0.5;
-    topY= minWordCloudSize * 0.5;    
+    let docViewer = node.append('g')
+                        .classed('doc-viewer hidden', true);
+    let docViewerY = topY + minWordCloudSize * expandedHeightScale - 2;
 
+    docViewer.append('rect')
+            .attr('x', leftX)
+            .attr('y', docViewerY)
+            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('height', 0) //(minWordCloudSize * expandedHeightScale) * 0.5 - 4)
+            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2)
+            .style('fill', d3.rgb(255, 255, 255));
+            //.style("opacity", 0.8);
+
+    var fo = docViewer.append('foreignObject')
+            .classed('fo-json hidden', true)
+            .attr('x', leftX + 10)
+            .attr('y', docViewerY)
+            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)
+            .attr('height', 0)
+            .on('mouseover', function() { svg.on('.zoom', null); })
+            .on('mouseout', function() { 
+                if(gui_elements.scaled)
+                    setSacledZoom(svg);
+                else {
+                    svg.call(zoom.transform, lastTransform);
+                    setNormalZoom(svg); 
+                }                
+            });
+
+    var div = fo.append('xhtml:div')
+                .style('font-size', '12px')
+                .style('overflow-y', 'auto')
+                .style('word-break', 'break-all')
+                .style('word-wrap', 'break-word')
+                //.style('background-color', d3.rgb(200, 200, 200, 0.9))
+                .style('height', '100%');
+
+    var drawerButton = docViewer.append('g')
+                                .classed('viewer-drawer hidden', true);
+    
+    let drawerW = minWordCloudSize * (expandedWidthScale - 1) - 2;
+    let drawerH = 20;
+    let drawerX = leftX;
+    let drawerY = topY + minWordCloudSize * expandedHeightScale - 2;
+
+    drawerButton.append('rect')
+            .attr('x', drawerX)
+            .attr('y', drawerY)
+            .attr('rx', 10)
+            .attr('ry', 10)
+            .attr('width', drawerW)
+            .attr('height', drawerH)
+            .style('fill', d3.rgb(100, 100, 100, 0.7))
+            .style('cursor', 'pointer');
+
+    drawerButton.on('click', function(selectedNode) {
+                closeDocViewer(selectedNode.idx);
+            });
+
+
+    leftX = -minWordCloudSize * 0.5;
+    topY= minWordCloudSize * 0.5;
+    
     let sources = node.append('g')
                         .classed('source-view hidden', true);
 
@@ -1181,7 +1360,7 @@ function draw() {
             .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
             .attr('height', minWordCloudSize * expandedHeightScale - minWordCloudSize  - 2)
             .attr('width', minWordCloudSize - 4)
-            .style('fill', d3.rgb(255, 255, 255, 0.8));
+            .style('fill', d3.rgb(255, 255, 255, 0.9));
 
     fo = sources.append('foreignObject')
             .attr('x', leftX + (minWordCloudSize - 4) * 0.5 - 125)
@@ -1432,16 +1611,7 @@ function draw() {
     });
     
 
-    // var svg = d3.select('svg');
-    // var docLayer = svg.append('g').classed('doc-layer hidden', true);
     
-    // docLayer.append('rect')
-    //     .attr('x', width * 0.6)
-    //     .attr('y', 0)
-    //     .attr('width', width * 0.4)
-    //     .attr('height', height)
-    //     .style('fill', d3.rgb(255, 255, 255))
-    //     .style("opacity", 0.8);
 
     addGui();
     drawLegend();
@@ -1468,6 +1638,8 @@ function toggleFullView(node, target){
     
     let angle = (node.expanded)? 15 : 195;
     triangle.attr('transform', 'rotate(' + angle + "," + buttonCenterX + "," + buttonCenterY + ")");
+
+    if(node.expanded) closeDocViewer(node.idx);
 
     d3.transition()
         .duration(200)
@@ -1928,7 +2100,7 @@ function addGui() {
         searchKeywords(text, false);             
     });
 
-    searchInput.__input.placeholder = 'e.g. happy+life+...';
+    searchInput.__input.placeholder = 'e.g. art+science+...';
 
     gui.add(gui_elements, 'clear search');
 }
