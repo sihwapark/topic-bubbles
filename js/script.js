@@ -444,14 +444,14 @@ function showDocsList(topic_idx, docLayer) {
 }
 
 function closeDocViewer(topic_idx) {
-    let node = d3.select('svg .node[id=\'node-' + topic_idx +'\']');
+    let node = d3.select('svg .node[id="node-' + topic_idx +'"]');
     var docViewer = node.select('.doc-viewer');
     var docList = node.select('.doc-list');
     var fo = node.select('.fo-json');
 
     if(docViewer.classed('hidden') == false) {
-        var drawer = docViewer.select('.viewer-drawer');
-        drawer.classed('hidden', true);
+        var viewerClose = docViewer.select('.viewer-close');
+        viewerClose.classed('hidden', true);
         docList.select('.fo-list')
                 .attr('height', minWordCloudSize * (expandedHeightScale) - 50);                
 
@@ -463,7 +463,7 @@ function closeDocViewer(topic_idx) {
                     let srcY =  minWordCloudSize * (expandedHeightScale - 0.5) - 2
                     let ir = d3.interpolateNumber(srcHeight, dstHeight);
                     
-                    drawer.attr('transform', 'translate(0,' + (dstHeight) + ')');  
+                    viewerClose.attr('transform', 'translate(0,' + (dstHeight) + ')');  
 
                     return function(t) {
                         let height = ir(t);
@@ -485,20 +485,44 @@ function closeDocViewer(topic_idx) {
     
                 });
     }
+
+    let lastClickedDocIndex = data.topic_docs[topic_idx].lastClickedDoc;
+    var wordCloud = data.wordCloud[topic_idx].layer;
+    
+    if(typeof lastClickedDocIndex != 'undefined' && lastClickedDocIndex != -1) {
+        var lastLi = docList.select('li[id="' + topic_idx + '-' + lastClickedDocIndex + '"]');
+        lastLi.style('font-weight', 'normal');
+        
+        data.topic_docs[topic_idx].docs[lastClickedDocIndex].clicked = false;
+
+        data.topic_docs[topic_idx].lastClickedDoc = -1;
+    }
+
+    data.wordCloud[topic_idx].words.forEach(function(w, i)  {
+        wordCloud.select('div[id="' + i + '"]')
+                .select('span')
+                .style('background-color', 'transparent');
+    });
 }
 
 function openDocViewer(topic_idx, docIndex) {
-    let node = d3.select('svg .node[id=\'node-' + topic_idx +'\']');
+    let node = d3.select('svg .node[id="node-' + topic_idx +'"]');
     var docViewer = node.select('.doc-viewer');
     var docList = node.select('.doc-list');
     var fo = node.select('.fo-json');
     var div = fo.select('div');
 
+    var li = docList.select('li[id="' + topic_idx + '-' + docIndex + '"]');
+
+    var linkbox = docList.select('.linkbox').node();
+
     if(docViewer.classed('hidden')) {
         docViewer.classed('hidden', false);
         fo.classed('hidden', false);
 
-        var drawer = docViewer.select('.viewer-drawer');
+        var viewerClose = docViewer.select('.viewer-close');
+
+        data.topic_docs[topic_idx].docs[docIndex].clicked = true;
 
         d3.transition().duration(200).ease(d3.easePolyOut)
                 .tween('circleToRect', function() {
@@ -508,7 +532,7 @@ function openDocViewer(topic_idx, docIndex) {
                     let srcY =  minWordCloudSize * (expandedHeightScale - 0.5) - 2
                     let ir = d3.interpolateNumber(srcHeight, dstHeight);
                     
-                    drawer.attr('transform', 'translate(0,' + (-dstHeight) + ')');  
+                    viewerClose.attr('transform', 'translate(0,' + (-dstHeight) + ')');  
 
                     return function(t) {
                         let height = ir(t);
@@ -520,82 +544,127 @@ function openDocViewer(topic_idx, docIndex) {
                     };
                 })
                 .on('end', function() {
-                    drawer.classed('hidden', false);
+                    viewerClose.classed('hidden', false);
                     docList.select('.fo-list')
                             .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
+
+                    linkbox.scrollTop = li.node().offsetTop;
+                    
                     if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
                         $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
 
                 })
                 .on('interrupt', function() {
-                    drawer.classed('hidden', false);
+                    viewerClose.classed('hidden', false);
                     docList.select('.fo-list')
                             .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
+                    
+                    linkbox.scrollTop = li.node().offsetTop;
+
                     if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
                         $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
                 });
     } else {
-
         if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
             $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
     }
+
+    if(typeof data.topic_docs[topic_idx].lastClickedDoc == 'undefined') 
+        data.topic_docs[topic_idx].lastClickedDoc = -1;
+    
+    let lastClickedDocIndex = data.topic_docs[topic_idx].lastClickedDoc;
+
+    data.topic_docs[topic_idx].lastClickedDoc = docIndex;
+    var wordCloud = data.wordCloud[topic_idx].layer;
+
+    if(lastClickedDocIndex != -1) {
+        var lastLi = docList.select('li[id="' + topic_idx + '-' + lastClickedDocIndex + '"]');
+        lastLi.style('font-weight', 'normal');
+        let lastMatched = data.topic_docs[topic_idx].docs[lastClickedDocIndex].matchedWords;
+
+        if(typeof lastMatched != 'undefined') {
+            lastMatched.forEach(function(m) {
+                wordCloud.select('div[id="' + m.wordCloudIndex + '"]')
+                            .select('span')
+                            .style('background-color', 'transparent');
+            });
+        }
+    }
+
+    let matched = data.topic_docs[topic_idx].docs[docIndex].matchedWords;
+    if(typeof matched != 'undefined') {
+        matched.forEach(function(m) {
+            wordCloud.select('div[id="' + m.wordCloudIndex + '"]')
+                        .select('span')
+                        .style('background-color', d3.rgb(255, 100, 100, 0.7));
+        });
+    }
+
+
+    li.style('font-weight', 'bold');
 }
 
 function showDocsWeights() {
 
 }
 
+function highlightingWords(words, wordCloud, on) {
+    words.forEach(function(m) {
+        wordCloud.select('div[id="' + m.wordCloudIndex + '"]')
+                    .select('span')
+                    .style('border-style', (on)? 'dashed': 'none');
+    });
+}
+
 function toggleWordsHighlight(topic_idx, docIndex, on) {
     if(jsonCachePath == "") return;
 
     var wordCloud = data.wordCloud[topic_idx].layer;
-    if(on) {
+    var matched = [];
+    
+    if(on) {   
         if(typeof data.topic_docs[topic_idx].docs[docIndex].json == 'undefined') {
             var jsonPath = jsonCachePath + data.topic_docs[topic_idx].citations[docIndex].doi;
             fetch(jsonPath).then(function(text) { 
                text.json().then(function(json) { 
                     
                     data.topic_docs[topic_idx].docs[docIndex].json = json;
-                    var content = "";
+                    var content = '';
 
                     if(typeof json['content'] != 'undefined') content = json['content'];
                     else if(typeof json['content-wiki-p10'] != 'undefined') content = json['content-wiki-p10'];
-                    
-                    data.wordCloud[topic_idx].words.forEach(function(w, i)  {
-                        
-                        if(content.search("\\b" + w.text + "\\b") != -1) {
-                            //console.log(w.text);
-                            wordCloud.select('div[id=\'' + i + '\']')
-                                    .select('span')
-                                    .style('background-color', d3.rgb(255, 100, 100, 0.7));
+
+                    data.wordCloud[topic_idx].words.forEach(function(w, i) {
+                        var reg = '\\b' + w.text + '\\b';
+                        if(content.search(new RegExp(reg, 'i')) != -1) {
+                            matched.push({word: w.text, wordCloudIndex: i});
                         }
                     });
+                    data.topic_docs[topic_idx].docs[docIndex].matchedWords = matched;
+                    highlightingWords(matched, wordCloud, on);
+
+                    let clicked = data.topic_docs[topic_idx].docs[docIndex].clicked;
+                    if(typeof clicked != 'undefined' && clicked) {
+                        openDocViewer(topic_idx, docIndex);
+                    }
                 });
             });
         } else {
-            var json = data.topic_docs[topic_idx].docs[docIndex].json;
-            var content = "";
-
-            if(typeof json['content'] != 'undefined') content = json['content'];
-            else if(typeof json['content-wiki-p10'] != 'undefined') content = json['content-wiki-p10'];
-            
-            data.wordCloud[topic_idx].words.forEach(function(w, i)  {
-                
-                if(content.search("\\b" + w.text + "\\b") != -1) {
-                    //console.log(w.text);
-                    wordCloud.select('div[id=\'' + i + '\']')
-                            .select('span')
-                            .style('background-color', d3.rgb(255, 100, 100, 0.7));
-                }
-            });
-
+            matched = data.topic_docs[topic_idx].docs[docIndex].matchedWords;
+            highlightingWords(matched, wordCloud, on);
         }
     } else {
-        data.wordCloud[topic_idx].words.forEach(function(w, i)  {
-            wordCloud.select('div[id=\'' + i + '\']')
-                    .select('span')
-                    .style('background-color', 'transparent');
-        });
+        matched = data.topic_docs[topic_idx].docs[docIndex].matchedWords;
+        
+        if(typeof mached != 'undefined') highlightingWords(matched, wordCloud, on);
+        else {
+            data.wordCloud[topic_idx].words.forEach(function(w, i)  {
+                
+                wordCloud.select('div[id="' + i + '"]')
+                        .select('span')
+                        .style('border-style', 'none');
+            });
+        }
     }
 }
 
@@ -663,7 +732,7 @@ function showSources(topic_idx, sourceLayer) {
     sourceLayer.node().appendChild(xAxis.node().cloneNode(true));
     xAxis.remove();
 
-    sourceLayer.select('g[id=\'xAxis\']')
+    sourceLayer.select('g[id="xAxis"]')
             .selectAll('.tick')
             .on('mouseover', function(d, i) {
                 d3.select(this).select('text')
@@ -739,19 +808,17 @@ function showSources(topic_idx, sourceLayer) {
 }
 
 function toggleDocsHighlight(topic_idx, docs, on) {
-    //var svg = d3.select('svg');
-    console.log(docs);
-
     docs.forEach(function(d) {
-        var li = d3.select('li[id=\'' + topic_idx + '-' + d.index + '\']');
+        var li = d3.select('li[id="' + topic_idx + '-' + d.index + '"]');
         if(on)
             li.classed('highlighted', true)
-                .style('font-weight', 'bold')
                 .style('background-color', d3.rgb(0, 200, 255, 0.9 * d.ratio + 0.1));
         else li.classed('highlighted', false)
-                .style('font-weight', 'normal')
                 .style('background-color', 'transparent');
     });
+
+    data
+
 }
 
 function topicDocs(topic_idx, num, docListLayer, sourceLayer) {
@@ -768,7 +835,7 @@ function topicDocs(topic_idx, num, docListLayer, sourceLayer) {
     }
 
     var result = function(d) {
-        console.log(d);
+        //console.log(d);
         data.topic_docs[topic_idx] = {
             t: topic_idx,
             docs: d,
@@ -1023,7 +1090,7 @@ function draw() {
                             .style('left', (d3.event.pageX + 5) + 'px')
                             .style('top', (d3.event.pageY + 5) + 'px')
                             .html(d.value.toFixed(4));
-                    var rect = node.select('rect[id=\'' + d.idx + '\']');
+                    var rect = node.select('rect[id="' + d.idx + '"]');
                     rect.style('stroke-width', 3);
                 })
                 .on('mousemove', function(d) {
@@ -1034,7 +1101,7 @@ function draw() {
                 })
                 .on('mouseleave', function(d) {                    
                     tooltip.style('visibility', 'hidden');
-                    var rect = node.select('rect[id=\'' + d.idx + '\']');
+                    var rect = node.select('rect[id="' + d.idx + '"]');
                     rect.style('stroke-width', 0);
                 })
                 .attr('x', function(d) { return -d.radius;})
@@ -1224,10 +1291,18 @@ function draw() {
             .style('cursor', 'pointer');
     
     var expandButtonTriangle = expandButton.append('g').classed('expand-triangle', true);
-    var symbolGenerator = d3.symbol().type(d3.symbolTriangle).size(50);
+    var symbolGenerator = d3.symbol().type(d3.symbolTriangle).size(20);
     expandButtonTriangle.append('path')
+            .classed('triangle-up', true)
             .attr('d',symbolGenerator)
-            .attr('transform', 'translate(' +[buttonCenterX, buttonCenterY] + ')rotate(15)')
+            .attr('transform', 'translate(' +[buttonCenterX + buttonRadius * 0.25, buttonCenterY + buttonRadius * 0.25] + '), rotate(15)')
+            .style('fill', 'black')
+            .style('cursor', 'pointer');
+
+     expandButtonTriangle.append('path')
+            .classed('triangle-down', true)
+            .attr('d',symbolGenerator)
+            .attr('transform', 'translate(' +[buttonCenterX - buttonRadius * 0.25, buttonCenterY - buttonRadius * 0.25] + '), rotate(-45)')
             .style('fill', 'black')
             .style('cursor', 'pointer');
 
@@ -1297,7 +1372,8 @@ function draw() {
             .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
             .attr('height', 0) //(minWordCloudSize * expandedHeightScale) * 0.5 - 4)
             .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2)
-            .style('fill', d3.rgb(255, 255, 255));
+            .style('fill', d3.rgb(255, 255, 255))
+            .style('stroke', d3.rgb(100, 100, 100, 0.7))
             //.style("opacity", 0.8);
 
     var fo = docViewer.append('foreignObject')
@@ -1317,32 +1393,49 @@ function draw() {
             });
 
     var div = fo.append('xhtml:div')
-                .style('font-size', '12px')
+                .style('font-size', '13px')
                 .style('overflow-y', 'auto')
                 .style('word-break', 'break-all')
                 .style('word-wrap', 'break-word')
                 //.style('background-color', d3.rgb(200, 200, 200, 0.9))
                 .style('height', '100%');
 
-    var drawerButton = docViewer.append('g')
-                                .classed('viewer-drawer hidden', true);
+    var viewerCloseButton = docViewer.append('g')
+                                .classed('viewer-close hidden', true);
     
-    let drawerW = minWordCloudSize * (expandedWidthScale - 1) - 2;
-    let drawerH = 20;
-    let drawerX = leftX;
-    let drawerY = topY + minWordCloudSize * expandedHeightScale - 2;
+    // let viewerCloseW = 20;
+    // let viewerCloseH = 20;
+    // let viewerCloseX = leftX + 10;
+    // let viewerCloseY = topY + minWordCloudSize * expandedHeightScale - 2 + 10;
+    
+    buttonCenterX = leftX + buttonRadius * 2;
+    buttonCenterY = topY + minWordCloudSize * expandedHeightScale - 2 + buttonRadius * 2;
 
-    drawerButton.append('rect')
-            .attr('x', drawerX)
-            .attr('y', drawerY)
-            .attr('rx', 10)
-            .attr('ry', 10)
-            .attr('width', drawerW)
-            .attr('height', drawerH)
+    viewerCloseButton.append('circle')
+            .attr('cx', buttonCenterX)
+            .attr('cy', buttonCenterY)
+            .attr('r', buttonRadius)
             .style('fill', d3.rgb(100, 100, 100, 0.7))
             .style('cursor', 'pointer');
 
-    drawerButton.on('click', function(selectedNode) {
+    // viewerCloseButton.append('rect')
+    //         .attr('x', viewerCloseX)
+    //         .attr('y', viewerCloseY)
+    //         .attr('rx', 10)
+    //         .attr('ry', 10)
+    //         .attr('width', viewerCloseW)
+    //         .attr('height', viewerCloseH)
+    //         .style('fill', d3.rgb(100, 100, 100, 0.7))
+    //         .style('cursor', 'pointer');
+
+    var viewerCloseButtonTriangle = viewerCloseButton.append('g');
+    viewerCloseButtonTriangle.append('path')
+            .attr('d', symbolGenerator)
+            .attr('transform', 'translate(' +[buttonCenterX, buttonCenterY] + ')rotate(60)')
+            .style('fill', 'black')
+            .style('cursor', 'pointer');
+
+    viewerCloseButton.on('click', function(selectedNode) {
                 closeDocViewer(selectedNode.idx);
             });
 
@@ -1387,7 +1480,7 @@ function draw() {
                 
                 var linkbox = d3.select(lastTarget).select('.linkbox').node();
                 var nodeData = d3.select(lastTarget).data()[0];
-                nodeData.scrollTop = linkbox.scrollTop;
+                if(linkbox =! null) nodeData.scrollTop = linkbox.scrollTop;
 
                 d3.select(lastTarget).select('.linkbox').style('overflow-y', 'hidden');
             }
@@ -1405,7 +1498,7 @@ function draw() {
 
         selectedNode.clicked = true;
 
-        var rect = node.select('rect[id=\'' + selectedNode.idx + '\']');
+        var rect = node.select('rect[id="' + selectedNode.idx + '"]');
         rect.style('stroke-width', 0);
         
         if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
@@ -1453,7 +1546,7 @@ function draw() {
                                         .style('font-size', w.size + 'px')
                                         .attr('width', w.width * 0.5)
                                         .attr('height', w.height * 0.5)
-                                        .html('<span class=\'wordbox\'>' + w.text + '</span>')
+                                        .html('<span class="wordbox">' + w.text + '</span>')
                                         .on('mouseover', function(d) {
                                             
                                             div.style('color', 'blue');
@@ -1629,15 +1722,19 @@ function toggleArrow(expanded, target) {
 
 function toggleFullView(node, target){
     let rect = target.select('rect');
-    //toggleArrow(node.expanded, target);
     
     let button = target.select('.expand-button circle');
-    let triangle = target.select('.expand-triangle');
+    let triangleUp = target.select('.triangle-up');
+    let triangleDown = target.select('.triangle-down');
     let buttonCenterX = +button.attr('cx');
     let buttonCenterY = +button.attr('cy');
-    
-    let angle = (node.expanded)? 15 : 195;
-    triangle.attr('transform', 'rotate(' + angle + "," + buttonCenterX + "," + buttonCenterY + ")");
+    let buttonRadius = 10;
+
+    var angle = (node.expanded)? 15 : -45;
+    triangleUp.attr('transform', 'translate(' +[buttonCenterX + buttonRadius * 0.25, buttonCenterY + buttonRadius * 0.25] + '), rotate(' + angle + ')');
+
+    angle = (node.expanded)? -45 : 15;
+    triangleDown.attr('transform', 'translate(' +[buttonCenterX - buttonRadius * 0.25, buttonCenterY - buttonRadius * 0.25] + '), rotate(' + angle + ')');
 
     if(node.expanded) closeDocViewer(node.idx);
 
@@ -1864,7 +1961,7 @@ function searchKeywords(keywords, splitted) {
             var wordCloudLayer = parentNode.select('.wordcloud-overlay');
             var texts = wordCloudLayer.select('g#words').selectAll('div');
 
-            if(texts._groups.length != 0) console.log(texts);
+            //if(texts._groups.length != 0) console.log(texts);
             texts.classed('clicked', false);
             
             if(typeof data.wordCloud[d.idx] != 'undefined') {
@@ -1960,8 +2057,8 @@ function searchKeywords(keywords, splitted) {
 }
 
 function clearSearch() {
-    console.log('clear search');
-    console.log(data.searchedWords);
+    // console.log('clear search');
+    // console.log(data.searchedWords);
 
     searchKeywords('', false);
 }
@@ -1984,8 +2081,8 @@ function addGui() {
         if(event.keyCode !== 13) return;
 
         var i = input.value;
-        var node = svg.select('.node[id=\'node-' + (i - 1) + '\']');
-        var rect = node.select('rect[id=\'' + (i - 1) + '\']');
+        var node = svg.select('.node[id="node-' + (i - 1) + '"]');
+        var rect = node.select('rect[id="' + (i - 1) + '"]');
         node.moveToFront();
 
         rect.transition().duration(2000)

@@ -70,6 +70,8 @@ svg {
 
 .wordbox {
     padding: 2px;
+    border-width: 2px;
+    border-color: rgba(120, 100, 100, 0.7);
 }
 
 .hidden {
@@ -126,6 +128,23 @@ svg {
 }
 
 .linkbox::-webkit-scrollbar-thumb:hover {
+    background: #555; 
+}
+
+.json-document::-webkit-scrollbar {
+    width: 10px;
+}
+
+.json-document::-webkit-scrollbar-track {
+    display: none;
+}
+ 
+.json-document::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+.json-document::-webkit-scrollbar-thumb:hover {
     background: #555; 
 }
 
