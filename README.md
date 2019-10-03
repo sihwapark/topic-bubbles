@@ -71,6 +71,8 @@ A force simulation with the use of `d3.forceSimulation` is applied in the backgr
   - [An example](https://bl.ocks.org/abrahamdu/e1481e86dd4e9d553cc2d7d359b91e68) for d3.js v4 or above
 - [fetch](https://github.com/github/fetch) to support `fetch()` in IE
 - [polyfill](https://github.com/taylorhakes/promise-polyfill), a Promise polyfill for older browsers
+- [jszip](https://github.com/Stuk/jszip)
+- [json-viewer](https://github.com/abodelot/jquery.json-viewer)
 
 ### Reference
 
