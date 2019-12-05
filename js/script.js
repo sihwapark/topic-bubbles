@@ -5,8 +5,6 @@ var files = {
         dt: 'dt.json.zip',
         tw: 'tw.json',
         topic_scaled: 'topic_scaled.csv',
-        auto_labels_supervised: 'output_supervised_.csv',
-        auto_labels_unsupervised: 'output_unsupervised_.csv',
         config: 'config.json'
 };
 
@@ -50,11 +48,15 @@ var worker = new Worker('js/worker.min.js');
 var expandedWidthScale = 2.3;
 var expandedHeightScale = 2.0;
 
-var jsonCachePath = "";
+var jsonCachePath = '';
+var geodPath = '';
+var metadata7DPath = '';
 
 var progressBarWidth;
 var progress;
 var tooltip;
+
+var docListHeight;
 
 function load() {
     worker.fs = d3.map();
@@ -150,6 +152,9 @@ function load() {
                             if(typeof i === 'string') {
                                 var config = JSON.parse(i);
                                 jsonCachePath = config.json_cache_path;
+                                geodPath = config.geod_path;
+                                metadata7DPath = config.metadata_7D_path;
+
                             } else {
                                 console.log('Unable to load a file ' + files.config);            
                             }
@@ -190,22 +195,6 @@ function load() {
             console.log('Unable to load a file ' + files.topic_scaled);
         }
     });
-
-    // loadData(data_folder[0] + files.auto_labels_unsupervised, function(e, i) {
-    //     if(typeof i === 'string') {
-    //         setAutoLabels(i, 'unsupervised');
-    //         loadData(data_folder[0] + files.auto_labels_supervised, function(e, i) {
-    //             if(typeof i === 'string') {
-    //                 setAutoLabels(i, 'supervised');
-    //             } else {
-    //                 console.log('Unable to load a file ' + files.auto_labels_supervised);
-    //             }
-    //         });
-
-    //     } else {
-    //         console.log('Unable to load a file ' + files.auto_labels_unsupervised);
-    //     }
-    // });
 };
 
 function loadData(e, t) {
@@ -401,7 +390,7 @@ function showDocsList(topic_idx, docLayer) {
             .attr('x', leftX + 10)
             .attr('y', topY + 40)
             .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)
-            .attr('height',minWordCloudSize * (expandedHeightScale) - 50)
+            .attr('height', docListHeight - 50)
             .on('mouseover', function() { svg.on('.zoom', null); })
             .on('mouseout', function() { 
                 if(gui_elements.scaled)
@@ -452,10 +441,10 @@ function closeDocViewer(topic_idx) {
         var viewerClose = docViewer.select('.viewer-close');
         viewerClose.classed('hidden', true);
         docList.select('.fo-list')
-                .attr('height', minWordCloudSize * (expandedHeightScale) - 50);                
+                .attr('height', docListHeight - 50);                
 
         d3.transition().duration(100).ease(d3.easePolyOut)
-                .tween('circleToRect', function() {
+                .tween('closeDocViwer', function() {
                     //d3.select(currentTarget).moveToFront();
                     let srcHeight = docViewer.select('rect').attr('height');
                     let dstHeight = 0;
@@ -523,8 +512,11 @@ function openDocViewer(topic_idx, docIndex) {
 
         data.topic_docs[topic_idx].docs[docIndex].clicked = true;
 
+        docList.select('.fo-list')
+                            .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
+
         d3.transition().duration(200).ease(d3.easePolyOut)
-                .tween('circleToRect', function() {
+                .tween('openDocViewer', function() {
                     //d3.select(currentTarget).moveToFront();
                     let srcHeight = docViewer.select('rect').attr('height');
                     let dstHeight = minWordCloudSize * expandedHeightScale * 0.8;
@@ -544,9 +536,7 @@ function openDocViewer(topic_idx, docIndex) {
                 })
                 .on('end', function() {
                     viewerClose.classed('hidden', false);
-                    docList.select('.fo-list')
-                            .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
-
+                    
                     linkbox.scrollTop = li.node().offsetTop;
                     
                     if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
@@ -555,8 +545,6 @@ function openDocViewer(topic_idx, docIndex) {
                 })
                 .on('interrupt', function() {
                     viewerClose.classed('hidden', false);
-                    docList.select('.fo-list')
-                            .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
                     
                     linkbox.scrollTop = li.node().offsetTop;
 
@@ -1145,12 +1133,13 @@ function draw() {
                             .classed('wordcloud-overlay hidden', true);
     let leftX = topY = -minWordCloudSize * 0.5;
     let rightX = minWordCloudSize * 0.5;
-
+    let roundOff = (minWordCloudSize * 0.5 - 2) * 0.1;
+    
     wordCloudLayer.append('rect')
             .attr('x', leftX + 2)
             .attr('y', topY + 2)
-            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
+            .attr('rx', roundOff)
+            .attr('ry', roundOff)
             .attr('height', minWordCloudSize - 4)
             .attr('width', minWordCloudSize - 4)
             .style('fill', d3.rgb(255, 255, 255));
@@ -1198,75 +1187,6 @@ function draw() {
     cross.style('stroke', 'black')
         .style('stroke-width', 1.5);
 
-    // var toggleExpandButton = wordCloudLayer.append('g')
-    //                             .classed('toggle-full-view', true);
-
-    // var toggleButtonWidth = 8;
-    // var toggleButtonHeight = 40;
-
-    // var toggleButtonX = buttonCenterX;
-    // var toggleButtonY = topY + minWordCloudSize * 0.5 - toggleButtonHeight * 0.5;
-    // var offset = 5;
-    // var toggleButtonCenterX = toggleButtonX + toggleButtonWidth * 0.5;
-    // var toggleButtonCenterY = toggleButtonY + toggleButtonHeight * 0.5;
-
-    // toggleExpandButton.append('rect')
-    //         .attr('x', toggleButtonX - offset * 0.5)
-    //         .attr('y', toggleButtonY - offset * 0.5)
-    //         .attr('rx', (toggleButtonWidth + offset) * 0.1)
-    //         .attr('ry', (toggleButtonHeight + offset) * 0.1)
-    //         .attr('height', toggleButtonHeight + offset)
-    //         .attr('width', toggleButtonWidth + offset)
-    //         .style('fill', d3.rgb(220, 220, 220, 0.7))
-    //         .style('cursor', 'pointer');
-
-
-    // var arrow = toggleExpandButton.append('g')
-    //                                 .classed('toggle-arrow', true);
-    // arrow.style('cursor', 'pointer');
-    // arrow.append('line')
-    //         .attr("x1", toggleButtonX)
-    //         .attr("y1", toggleButtonY)
-    //         .attr("x2", toggleButtonCenterX - 1)
-    //         .attr("y2", toggleButtonCenterY);
-
-    // arrow.append('line')
-    //         .attr("x1", toggleButtonX)
-    //         .attr("y1", toggleButtonCenterY + toggleButtonHeight * 0.5)
-    //         .attr("x2", toggleButtonCenterX - 1)
-    //         .attr("y2", toggleButtonCenterY);
-
-    // arrow.append('line')
-    //         .attr("x1", toggleButtonCenterX + 1)
-    //         .attr("y1", toggleButtonY)
-    //         .attr("x2", toggleButtonCenterX + toggleButtonWidth * 0.5)
-    //         .attr("y2", toggleButtonCenterY);
-
-    // arrow.append('line')
-    //         .attr("x1", toggleButtonCenterX + 1)
-    //         .attr("y1", toggleButtonCenterY + toggleButtonHeight * 0.5)
-    //         .attr("x2", toggleButtonCenterX + toggleButtonWidth * 0.5)
-    //         .attr("y2", toggleButtonCenterY);
-
-    // arrow.style('stroke', 'black')
-    //     .style('stroke-width', 1);
-
-    // toggleExpandButton.on('click', function(selectedNode) {
-    //             let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
-    //             toggleFullView(selectedNode, selectedTarget)
-    //         });
-    
-
-    // wordCloudLayer.append('text')
-    //         .attr('x', 0)
-    //         .attr('y', topY + 25)
-    //         .attr('background-color', 'black')
-    //         .attr('font-weight', 'bold')
-    //         .style('cursor', 'text-')
-    //         .text(function(d) {
-    //             return d.name;
-    //         });
-
     var fo = wordCloudLayer.append('foreignObject')
             .attr('x', -50)
             .attr('y', topY + 10)
@@ -1281,7 +1201,7 @@ function draw() {
                 .html(function(d) { return d.name; });
 
     var expandButton = wordCloudLayer.append('g').classed('expand-button', true);
-    buttonCenterY = topY + minWordCloudSize - 4 - buttonRadius * 2;
+    buttonCenterY = topY + minWordCloudSize - buttonRadius * 2;
     expandButton.append('circle')
             .attr('cx', buttonCenterX)
             .attr('cy', buttonCenterY)
@@ -1313,41 +1233,29 @@ function draw() {
     leftX = minWordCloudSize * 0.5;
     topY= -minWordCloudSize * 0.5;
 
-    // let autoLabels =  node.append('g')
-    //                     .classed('auto-labels hidden', true)
-
-    // autoLabels.append('rect')
-    //         .attr('x', leftX)
-    //         .attr('y', topY + 2)
-    //         .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
-    //         .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
-    //         .attr('height', minWordCloudSize - 4)
-    //         .attr('width', minWordCloudSize * 0.5 - 2)
-    //         .style('fill', d3.rgb(255, 255, 255, 0.6));
-
-    // autoLabels.append('text')
-    //     .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-    //     .attr('y', topY + 25)
-    //     .attr('font-weight', 'bold')
-    //     .style('cursor', 'default')
-    //     .text(function(d) {
-    //         return 'Automatic Labels';
-    //     });
-
-    let docLists = node.append('g')
+    let docList = node.append('g')
                         .classed('doc-list hidden', true);
+    docListHeight = minWordCloudSize * expandedHeightScale;
+    if(geodPath != '') {
+        docListHeight *= 0.8;
+        docListHeight -= 2;
+    } else {
+        docListHeight -= 4;
+    }
+    
+    let docListWidth = minWordCloudSize * (expandedWidthScale - 1) - 2;
 
-    docLists.append('rect')
+    docList.append('rect')
             .attr('x', leftX)
             .attr('y', topY + 2)
-            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('height', minWordCloudSize * expandedHeightScale - 4)
-            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2)
+            .attr('rx', roundOff)
+            .attr('ry', roundOff)
+            .attr('height', docListHeight)
+            .attr('width', docListWidth)
             .style('fill', d3.rgb(255, 255, 255, 0.9));
 
-    var fo = docLists.append('foreignObject')
-            .attr('x', leftX + (minWordCloudSize * (expandedWidthScale - 1) - 2) * 0.5 - 125)
+    var fo = docList.append('foreignObject')
+            .attr('x', leftX + docListWidth * 0.5 - 125)
             .attr('y', topY + 10)
             .attr('width', 250)
             .attr('height', 25);
@@ -1359,6 +1267,59 @@ function draw() {
                 .style('font-size', '13px')
                 .style('cursor', 'default')
                 .html('Top 20 Documents');
+    
+    if(geodPath != '') {
+        let geod = node.append('g')
+                        .classed('geod hidden', true)
+                        .style('cursor', 'pointer')
+                        .on('click', function(d) {
+                            let url = geodPath + '/?topicNum=' + (d.idx + 1);
+                            window.open(url);
+                        });
+        
+        let geodWidth = minWordCloudSize * (expandedWidthScale - 1) - 2;
+        let geodHeight = minWordCloudSize * (expandedHeightScale * 0.2) - 4;
+        let geodY =  topY + 2 + minWordCloudSize * (expandedHeightScale * 0.8);
+
+        geod.append('rect')
+                .attr('x', leftX)
+                .attr('y', geodY)
+                .attr('rx', roundOff)
+                .attr('ry', roundOff)
+                .attr('height', geodHeight)
+                .attr('width', geodWidth)
+                .style('fill', d3.rgb(255, 255, 255, 0.9));
+
+        geod.append('clipPath')
+            .attr('id', function(d) { return 'geod_clip-' + d.idx; })
+            .append('rect')
+                .attr('x', leftX)
+                .attr('y', geodY)
+                .attr('rx', roundOff)
+                .attr('ry', roundOff)
+                .attr('height', geodHeight)
+                .attr('width', geodWidth)
+                .style('fill', d3.rgb(255, 255, 255, 0.9));
+        
+        geod.append('image')
+                .attr('clip-path', function(d) { return 'url(#geod_clip-' + d.idx + ')'; })
+                .attr('xlink:href', 'img/geod_banner.png')
+                .attr('preserveAspectRatio', 'none')
+                .attr('x', leftX)
+                .attr('y', geodY)
+                .attr('height', geodHeight)
+                .attr('width', geodWidth)
+                
+        geod.append('text')
+                .attr('fill', 'white')
+                .style('font-size', '13px')
+                .style('font-weight', 'bold')
+                .attr('x', leftX + geodWidth * 0.5)
+                .attr('y', geodY + geodHeight * 0.5)
+                .style('text-anchor', 'middle')
+                .style('dominant-baseline', 'central')
+                .text(function(d) { return 'Open the GeoD viewer for Topic ' + (d.idx + 1); });
+    }
 
     let docViewer = node.append('g')
                         .classed('doc-viewer hidden', true);
@@ -1367,19 +1328,18 @@ function draw() {
     docViewer.append('rect')
             .attr('x', leftX)
             .attr('y', docViewerY)
-            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('height', 0) //(minWordCloudSize * expandedHeightScale) * 0.5 - 4)
-            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2)
+            .attr('rx', roundOff)
+            .attr('ry', roundOff)
+            .attr('height', 0)
+            .attr('width', docListWidth)
             .style('fill', d3.rgb(255, 255, 255))
-            .style('stroke', d3.rgb(100, 100, 100, 0.7))
-            //.style("opacity", 0.8);
+            .style('stroke', d3.rgb(100, 100, 100, 0.7));
 
     var fo = docViewer.append('foreignObject')
             .classed('fo-json hidden', true)
             .attr('x', leftX + 10)
             .attr('y', docViewerY)
-            .attr('width', minWordCloudSize * (expandedWidthScale - 1) - 2 - 20)
+            .attr('width', docListWidth - 20)
             .attr('height', 0)
             .on('mouseover', function() { svg.on('.zoom', null); })
             .on('mouseout', function() { 
@@ -1396,19 +1356,13 @@ function draw() {
                 .style('overflow-y', 'auto')
                 .style('word-break', 'break-all')
                 .style('word-wrap', 'break-word')
-                //.style('background-color', d3.rgb(200, 200, 200, 0.9))
                 .style('height', '100%');
 
     var viewerCloseButton = docViewer.append('g')
                                 .classed('viewer-close hidden', true);
     
-    // let viewerCloseW = 20;
-    // let viewerCloseH = 20;
-    // let viewerCloseX = leftX + 10;
-    // let viewerCloseY = topY + minWordCloudSize * expandedHeightScale - 2 + 10;
-    
     buttonCenterX = leftX + buttonRadius * 2;
-    buttonCenterY = topY + minWordCloudSize * expandedHeightScale - 2 + buttonRadius * 2;
+    buttonCenterY = docViewerY + buttonRadius * 2;
 
     viewerCloseButton.append('circle')
             .attr('cx', buttonCenterX)
@@ -1416,16 +1370,6 @@ function draw() {
             .attr('r', buttonRadius)
             .style('fill', d3.rgb(100, 100, 100, 0.7))
             .style('cursor', 'pointer');
-
-    // viewerCloseButton.append('rect')
-    //         .attr('x', viewerCloseX)
-    //         .attr('y', viewerCloseY)
-    //         .attr('rx', 10)
-    //         .attr('ry', 10)
-    //         .attr('width', viewerCloseW)
-    //         .attr('height', viewerCloseH)
-    //         .style('fill', d3.rgb(100, 100, 100, 0.7))
-    //         .style('cursor', 'pointer');
 
     var viewerCloseButtonTriangle = viewerCloseButton.append('g');
     viewerCloseButtonTriangle.append('path')
@@ -1438,9 +1382,8 @@ function draw() {
                 closeDocViewer(selectedNode.idx);
             });
 
-
     leftX = -minWordCloudSize * 0.5;
-    topY= minWordCloudSize * 0.5;
+    topY = minWordCloudSize * 0.5;
     
     let sources = node.append('g')
                         .classed('source-view hidden', true);
@@ -1448,9 +1391,9 @@ function draw() {
     sources.append('rect')
             .attr('x', leftX + 2)
             .attr('y', topY)
-            .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
-            .attr('height', minWordCloudSize * expandedHeightScale - minWordCloudSize  - 2)
+            .attr('rx', roundOff)
+            .attr('ry', roundOff)
+            .attr('height', minWordCloudSize * expandedHeightScale - minWordCloudSize - 2)
             .attr('width', minWordCloudSize - 4)
             .style('fill', d3.rgb(255, 255, 255, 0.9));
 
@@ -1468,11 +1411,41 @@ function draw() {
                 .style('cursor', 'default')
                 .html('Sources of Top 20 Documents');
 
+    if(metadata7DPath != '') {
+        var metadata7DButton = sources.append('g')
+                                .classed('metadata-7d', true)
+                                .style('cursor', 'pointer')
+                                .on('click', function(d) {
+                                    let url = metadata7DPath + '/?type=PubD&leftY=' + (d.idx + 2);
+                                    window.open(url);
+                                });
+        let metadata7DWidth = 100;
+        let metadata7DHeight = 20;
+        let metadata7DX = rightX - metadata7DWidth - buttonRadius;
+        let metadata7DY = topY + minWordCloudSize - 20 - buttonRadius;
+        
+        metadata7DButton.append('rect')
+                .attr('x', metadata7DX)
+                .attr('y', metadata7DY)
+                .attr('rx', metadata7DWidth * 0.1)
+                .attr('ry', metadata7DWidth * 0.1)
+                .attr('height', metadata7DHeight)
+                .attr('width', metadata7DWidth)
+                .style('fill', d3.rgb(200, 200, 200, 0.9));
+
+        metadata7DButton.append('text')
+                .style('font-size', '13px')
+                .attr('x', metadata7DX + metadata7DWidth * 0.5)
+                .attr('y', metadata7DY + metadata7DHeight * 0.5)
+                .style('text-anchor', 'middle')
+                .style('dominant-baseline', 'central')
+                .text('Metadata7D');
+
+    }
+
     var lastTarget = null;
     node.on('click', function(selectedNode) {
         let currentTarget = d3.event.currentTarget;
-        
-        //window.location.hash = 'clicked_' + selectedNode.idx;
         if(lastTarget != currentTarget) {
             d3.select(currentTarget).moveToFront();
             if(lastTarget != null) {
@@ -1501,7 +1474,6 @@ function draw() {
         rect.style('stroke-width', 0);
         
         if(typeof data.wordCloud[selectedNode.idx] == 'undefined') {
-            //console.log(selectedNode.idx + ' word cloud layout started');
 
             let fontSizeScale = d3.scaleSqrt().domain([0, 1]).range([5, 25]);
             var maxWeight = selectedNode.words[0].weight;
@@ -1516,11 +1488,10 @@ function draw() {
                     .timeInterval(10)
                     .words(words_frequency)
                     .padding(5)
-                    .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
+                    .rotate(0)
                     .fontSize(function(w) { return w.size; })
                     .on('end', function(words) {
                         data.wordCloud[selectedNode.idx] = {words: words};
-                        //console.log(selectedNode.idx + ' word cloud layout ended');
 
                         var layer = wordCloudLayer.filter(function(l,i) { return (l.idx == selectedNode.idx); })
                                                     .append('g')
@@ -1596,59 +1567,7 @@ function draw() {
                     })
                     .start();
 
-                var offsetY = 50;
-                // var autoLabelsLayer = autoLabels.filter(function(l,i) { return (l.idx == selectedNode.idx); });
-
-                // autoLabelsLayer.append('text')
-                //         .attr('x', leftX + 15)
-                //         .attr('y', topY + 25 + offsetY)
-                //         .style('font-size', '15px')
-                //         .style('text-anchor', 'start')
-                //         .style('cursor', 'default')
-                //         .text('Unsupervised:');
-                
-                // offsetY += 50;
-
-                // data.auto_labels[selectedNode.idx].labels['unsupervised'].forEach(function(d, i) {
-                //     autoLabelsLayer.append('text')
-                //         .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-                //         .attr('y', topY + 25 + offsetY)
-                //         .style('font-size', '20px')
-                //         .style('cursor', 'default')
-                //         .text(function() {
-                //             return d;
-                //         });
-
-                //     offsetY += 25;
-                // });
-
-                // offsetY = 50;
-
-                // autoLabelsLayer.append('text')
-                //         .attr('x', leftX + 15)
-                //         .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
-                //         .style('font-size', '15px')
-                //         .style('text-anchor', 'start')
-                //         .style('cursor', 'default')
-                //         .text('Supervised:');
-                
-                // offsetY += 50;
-
-                // data.auto_labels[selectedNode.idx].labels['supervised'].forEach(function(d, i) {
-                //     autoLabelsLayer.append('text')
-                //         .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-                //         .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
-                //         .style('font-size', '20px')
-                //         .style('cursor', 'default')
-                //         .text(function() {
-                //             return d;
-                //         });
-
-                //     offsetY += 25;
-                // });
-                // 
-                // 
-                var docListLayer = docLists.filter(function(l,i) { return (l.idx == selectedNode.idx); });
+                var docListLayer = docList.filter(function(l,i) { return (l.idx == selectedNode.idx); });
                 var sourceLayer = sources.filter(function(l,i) { return (l.idx == selectedNode.idx); });
                 topicDocs(selectedNode.idx, 20, docListLayer, sourceLayer);
         }
@@ -1690,9 +1609,6 @@ function draw() {
                     
             })
             .on('interrupt', function() {
-                    //console.log('move interrupt', selectedNode);
-                    // selectedNode.fx = null;
-                    // selectedNode.fy = null;
                     selectedNode.borderRatio = 0.1;
                     selectedNode.r = centerY * 0.5;
                     simulation.alphaTarget(0);
@@ -1744,6 +1660,7 @@ function toggleFullView(node, target){
 
             if(node.expanded) { 
                 target.select('.doc-list').classed('hidden', true);
+                target.select('.geod').classed('hidden', true);
                 target.select('.source-view').classed('hidden', true);
             }
 
@@ -1762,6 +1679,7 @@ function toggleFullView(node, target){
             node.expanded = !node.expanded;
             if(node.expanded) {
                 target.select('.doc-list').classed('hidden', false);
+                target.select('.geod').classed('hidden', false);
                 target.select('.source-view').classed('hidden', false);
             }
         })
@@ -1772,6 +1690,7 @@ function toggleFullView(node, target){
             node.expanded = !node.expanded;
             if(node.expanded) {
                 target.select('.doc-list').classed('hidden', false);
+                target.select('.geod').classed('hidden', false);
                 target.select('.source-view').classed('hidden', false);
             }        
         });
@@ -1854,7 +1773,6 @@ function setSacledZoom(svg) {
                     newX = transform.applyX(xScale(d.scaledInitX));
                     newY = transform.applyY(yScale(d.scaledInitY));
 
-                    //console.log(d.idx, d.x, d.y, scaledX, scaledY);
                     return 'translate(' + [newX, newY] + ')';
                 });
         });
@@ -1887,7 +1805,6 @@ function searchKeywords(keywords, splitted) {
 
     searchInput.setValue(valueForSearchInput);
 
-    //if(data.searchWords == keywords) return;
     var svg = d3.select('svg');
 
     var result = [[],];
@@ -1995,8 +1912,6 @@ function searchKeywords(keywords, splitted) {
                     if(typeof data.wordCloud[d.idx] != 'undefined') {
                         data.wordCloud[d.idx].words[v.index].clicked = true;
                     }
-                    
-                    // console.log(v); 
                 });
 
                 parentNode.select('.topic_name').classed('hidden', false);
@@ -2056,9 +1971,6 @@ function searchKeywords(keywords, splitted) {
 }
 
 function clearSearch() {
-    // console.log('clear search');
-    // console.log(data.searchedWords);
-
     searchKeywords('', false);
 }
 
@@ -2111,8 +2023,6 @@ function addGui() {
 
             if(gui_elements.scaled) {
 
-                //simulation.stop();
-                // simulation.nodes([]);
                 simulation.force('collide', null);
 
                 data.topic_scaled.forEach(function(scaleRatio, i) {

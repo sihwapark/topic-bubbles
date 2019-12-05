@@ -1,3 +1,6 @@
 {
-	"json_cache_path": ""
+	"json_cache_path": " ",
+	"geod_path": "http://localhost:8000",
+	"metadata_7D_path": "http://localhost:9001/metadata-7D"
+
 }
