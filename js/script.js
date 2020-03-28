@@ -56,7 +56,27 @@ var progressBarWidth;
 var progress;
 var tooltip;
 
+
 function load() {
+
+    var infoView = document.getElementById('info-view');
+    var infoButton = document.getElementById('info');
+    var infoClose = document.getElementById('info-close');
+
+    info.onclick = function() {
+        infoView.style.display = "block";
+    }
+
+    infoClose.onclick = function() {
+        infoView.style.display = "none";
+    }
+
+    window.onclick = function(e) {
+        if (e.target == infoView) {
+            infoView.style.display = "none";
+        }
+    }
+
     worker.fs = d3.map();
     worker.onmessage = function(e) {
         var i = worker.fs.get(e.data.what);
@@ -443,6 +463,8 @@ function showDocsList(topic_idx, docLayer) {
 }
 
 function closeDocViewer(topic_idx) {
+    if(typeof data.topic_docs[topic_idx] == 'undefined') return;
+
     let node = d3.select('svg .node[id="node-' + topic_idx +'"]');
     var docViewer = node.select('.doc-viewer');
     var docList = node.select('.doc-list');
@@ -451,6 +473,9 @@ function closeDocViewer(topic_idx) {
     if(docViewer.classed('hidden') == false) {
         var viewerClose = docViewer.select('.viewer-close');
         viewerClose.classed('hidden', true);
+        var openRawJsonFileButton = docViewer.select('.open-rawjson');
+        openRawJsonFileButton.classed('hidden', true);
+
         docList.select('.fo-list')
                 .attr('height', minWordCloudSize * (expandedHeightScale) - 50);                
 
@@ -462,7 +487,8 @@ function closeDocViewer(topic_idx) {
                     let srcY =  minWordCloudSize * (expandedHeightScale - 0.5) - 2
                     let ir = d3.interpolateNumber(srcHeight, dstHeight);
                     
-                    viewerClose.attr('transform', 'translate(0,' + (dstHeight) + ')');  
+                    viewerClose.attr('transform', 'translate(0,' + (dstHeight) + ')');
+                    openRawJsonFileButton.attr('transform', 'translate(0,' + (dstHeight) + ')');
 
                     return function(t) {
                         let height = ir(t);
@@ -515,6 +541,10 @@ function openDocViewer(topic_idx, docIndex) {
 
     var linkbox = docList.select('.linkbox').node();
 
+    var openRawJsonFileButton = docViewer.select('.open-rawjson');
+    var jsonPath = jsonCachePath + data.topic_docs[topic_idx].citations[docIndex].doi;
+    openRawJsonFileButton.select('a').attr('xlink:href', jsonPath);
+
     if(docViewer.classed('hidden')) {
         docViewer.classed('hidden', false);
         fo.classed('hidden', false);
@@ -531,8 +561,9 @@ function openDocViewer(topic_idx, docIndex) {
                     let srcY =  minWordCloudSize * (expandedHeightScale - 0.5) - 2
                     let ir = d3.interpolateNumber(srcHeight, dstHeight);
                     
-                    viewerClose.attr('transform', 'translate(0,' + (-dstHeight) + ')');  
-
+                    viewerClose.attr('transform', 'translate(0,' + (-dstHeight) + ')');
+                    openRawJsonFileButton.attr('transform', 'translate(0,' + (-dstHeight) + ')');
+                    
                     return function(t) {
                         let height = ir(t);
                         docViewer.select('rect').attr('y', srcY - height)
@@ -544,39 +575,52 @@ function openDocViewer(topic_idx, docIndex) {
                 })
                 .on('end', function() {
                     viewerClose.classed('hidden', false);
+                    openRawJsonFileButton.classed('hidden', false);
+
                     docList.select('.fo-list')
                             .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
 
                     linkbox.scrollTop = li.node().offsetTop;
                     
-                    if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+                    if(typeof data.topic_docs[topic_idx].docs[docIndex].jsonRendered != 'undefined') {
+                        div._groups[0][0].innerHTML = data.topic_docs[topic_idx].docs[docIndex].jsonRendered;
+                    } else if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') {
                         $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+                        data.topic_docs[topic_idx].docs[docIndex].jsonRendered = div._groups[0][0].innerHTML;
+                    }
 
                 })
                 .on('interrupt', function() {
                     viewerClose.classed('hidden', false);
+                    openRawJsonFileButton.classed('hidden', false);
+
                     docList.select('.fo-list')
                             .attr('height', minWordCloudSize * (expandedHeightScale) * 0.2 - 50);
                     
                     linkbox.scrollTop = li.node().offsetTop;
 
-                    if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+                    if(typeof data.topic_docs[topic_idx].docs[docIndex].jsonRendered != 'undefined') {
+                        div._groups[0][0].innerHTML = data.topic_docs[topic_idx].docs[docIndex].jsonRendered;
+                    } else if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') {
                         $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+                        data.topic_docs[topic_idx].docs[docIndex].jsonRendered = div._groups[0][0].innerHTML;
+                    }
                 });
     } else {
-        if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+        if(typeof data.topic_docs[topic_idx].docs[docIndex].jsonRendered != 'undefined') {
+            div._groups[0][0].innerHTML = data.topic_docs[topic_idx].docs[docIndex].jsonRendered;
+        } else if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') {
             $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+            data.topic_docs[topic_idx].docs[docIndex].jsonRendered = div._groups[0][0].innerHTML;
+        }
     }
-
-    if(typeof data.topic_docs[topic_idx].lastClickedDoc == 'undefined') 
-        data.topic_docs[topic_idx].lastClickedDoc = -1;
     
     let lastClickedDocIndex = data.topic_docs[topic_idx].lastClickedDoc;
 
     data.topic_docs[topic_idx].lastClickedDoc = docIndex;
     var wordCloud = data.wordCloud[topic_idx].layer;
 
-    if(lastClickedDocIndex != -1) {
+    if(typeof lastClickedDocIndex != 'undefined' && lastClickedDocIndex != -1) {
         var lastLi = docList.select('li[id="' + topic_idx + '-' + lastClickedDocIndex + '"]');
         lastLi.style('font-weight', 'normal');
         let lastMatched = data.topic_docs[topic_idx].docs[lastClickedDocIndex].matchedWords;
@@ -598,7 +642,6 @@ function openDocViewer(topic_idx, docIndex) {
                         .style('background-color', d3.rgb(255, 100, 100, 0.7));
         });
     }
-
 
     li.style('font-weight', 'bold');
 }
@@ -1280,38 +1323,8 @@ function draw() {
                 .style('font-size', '13px')
                 .html(function(d) { return d.name; });
 
-    var expandButton = wordCloudLayer.append('g').classed('expand-button', true);
-    buttonCenterY = topY + minWordCloudSize - 4 - buttonRadius * 2;
-    expandButton.append('circle')
-            .attr('cx', buttonCenterX)
-            .attr('cy', buttonCenterY)
-            .attr('r', buttonRadius)
-            .style('fill', d3.rgb(0, 200, 255, 0.7))
-            .style('cursor', 'pointer');
-    
-    var expandButtonTriangle = expandButton.append('g').classed('expand-triangle', true);
-    var symbolGenerator = d3.symbol().type(d3.symbolTriangle).size(20);
-    expandButtonTriangle.append('path')
-            .classed('triangle-up', true)
-            .attr('d',symbolGenerator)
-            .attr('transform', 'translate(' +[buttonCenterX + buttonRadius * 0.25, buttonCenterY + buttonRadius * 0.25] + '), rotate(15)')
-            .style('fill', 'black')
-            .style('cursor', 'pointer');
-
-     expandButtonTriangle.append('path')
-            .classed('triangle-down', true)
-            .attr('d',symbolGenerator)
-            .attr('transform', 'translate(' +[buttonCenterX - buttonRadius * 0.25, buttonCenterY - buttonRadius * 0.25] + '), rotate(-45)')
-            .style('fill', 'black')
-            .style('cursor', 'pointer');
-
-    expandButton.on('click', function(selectedNode) {
-                let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
-                toggleFullView(selectedNode, selectedTarget);
-            });
-
     leftX = minWordCloudSize * 0.5;
-    topY= -minWordCloudSize * 0.5;
+    topY = -minWordCloudSize * 0.5;
 
     // let autoLabels =  node.append('g')
     //                     .classed('auto-labels hidden', true)
@@ -1427,6 +1440,8 @@ function draw() {
     //         .style('fill', d3.rgb(100, 100, 100, 0.7))
     //         .style('cursor', 'pointer');
 
+    var symbolGenerator = d3.symbol().type(d3.symbolTriangle).size(20);
+
     var viewerCloseButtonTriangle = viewerCloseButton.append('g');
     viewerCloseButtonTriangle.append('path')
             .attr('d', symbolGenerator)
@@ -1438,6 +1453,34 @@ function draw() {
                 closeDocViewer(selectedNode.idx);
             });
 
+    let buttonWidth = 160;
+    let buttonHeight = buttonRadius * 2;
+    let buttonX = buttonCenterX + buttonRadius + 8;
+    let buttonY = topY + minWordCloudSize * expandedHeightScale - 2 + buttonRadius;
+
+    var openRawJsonFileButton = docViewer.append('g')
+                                .classed('open-rawjson hidden', true);
+    openRawJsonFileButton.append('a').attr('target', '_blank')
+                        .append('rect')
+                        .attr('x', buttonX)
+                        .attr('y', buttonY)
+                        .attr('rx', buttonHeight * 0.5)
+                        .attr('ry', buttonHeight * 0.5)
+                        .attr('width', buttonWidth)
+                        .attr('height', buttonHeight)
+                        .style('fill', d3.rgb(255, 255, 255, 1))
+                        .style('stroke', d3.rgb(100, 100, 100, 0.7))
+                        .style('cursor', 'pointer');
+    
+    openRawJsonFileButton.append('text')
+                        .attr('x', buttonX + buttonWidth * 0.5)
+                        .attr('y', buttonY + buttonHeight * 0.5)
+                        .attr('text-anchor', 'middle')
+                        .attr("dy", ".35em")
+                        .style('fill', d3.rgb(100, 100, 100, 0.7))
+                        .style('font-size', '12px')
+                        .style('pointer-events', 'none')
+                        .text('View JSON in New Window');
 
     leftX = -minWordCloudSize * 0.5;
     topY= minWordCloudSize * 0.5;
@@ -1515,7 +1558,7 @@ function draw() {
             d3.layout.cloud().size([minWordCloudSize - 15, minWordCloudSize - 50])
                     .timeInterval(10)
                     .words(words_frequency)
-                    .padding(5)
+                    .padding(4)
                     .rotate(0)//(~~(Math.random() * 6) - 3) * 30)
                     .fontSize(function(w) { return w.size; })
                     .on('end', function(words) {
@@ -1593,6 +1636,39 @@ function draw() {
                                     div.classed('clicked', true);
                                 }
                         });
+                        
+                        topY = -minWordCloudSize * 0.5;
+                        
+                        var expandButton = wordCloudLayer.append('g').classed('expand-button', true);
+                        buttonCenterX = rightX - buttonRadius * 2;
+                        buttonCenterY = topY + minWordCloudSize - 4 - buttonRadius * 2;
+                        expandButton.append('circle')
+                                .attr('cx', buttonCenterX)
+                                .attr('cy', buttonCenterY)
+                                .attr('r', buttonRadius)
+                                .style('fill', d3.rgb(0, 200, 255, 0.7))
+                                .style('cursor', 'pointer');
+                        
+                        var expandButtonTriangle = expandButton.append('g').classed('expand-triangle', true);
+                        
+                        expandButtonTriangle.append('path')
+                                .classed('triangle-up', true)
+                                .attr('d',symbolGenerator)
+                                .attr('transform', 'translate(' +[buttonCenterX + buttonRadius * 0.25, buttonCenterY + buttonRadius * 0.25] + '), rotate(15)')
+                                .style('fill', 'black')
+                                .style('cursor', 'pointer');
+
+                        expandButtonTriangle.append('path')
+                                .classed('triangle-down', true)
+                                .attr('d',symbolGenerator)
+                                .attr('transform', 'translate(' +[buttonCenterX - buttonRadius * 0.25, buttonCenterY - buttonRadius * 0.25] + '), rotate(-45)')
+                                .style('fill', 'black')
+                                .style('cursor', 'pointer');
+
+                        expandButton.on('click', function(selectedNode) {
+                                    let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
+                                    toggleFullView(selectedNode, selectedTarget);
+                                });
                     })
                     .start();
 
@@ -1991,12 +2067,10 @@ function searchKeywords(keywords, splitted) {
                 result[d.idx].forEach(function(v) {
                     var text = texts.filter(function(t, ti) { return ti == v.index; });
                     text.classed('clicked', true);
-                    
-                    if(typeof data.wordCloud[d.idx] != 'undefined') {
+
+                    if(typeof data.wordCloud[d.idx] != 'undefined' && typeof data.wordCloud[d.idx].words[v.index] != 'undefined') {
                         data.wordCloud[d.idx].words[v.index].clicked = true;
                     }
-                    
-                    // console.log(v); 
                 });
 
                 parentNode.select('.topic_name').classed('hidden', false);

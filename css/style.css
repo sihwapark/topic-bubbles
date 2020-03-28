@@ -10,38 +10,54 @@ html, body {
     box-sizing: inherit;
 }
 
-#title {
-    margin: 0;
-    padding: 0 0 0 20px;
-    text-align: left;
-    /*line-height: 80px;*/
+.title {
     color: white;
-    display: inline;
-    vertical-align: middle;
+    width: 80%;
+}
+
+.about {
+    padding-right: 20px;
+    width: calc(20% - 100px);
+    float: right;
+}
+
+.about h3 {
+    float: right;
+}
+
+#info:hover,
+#info:focus {
+    color: gray;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .logo {
-    margin-left: 10px;
-    margin-top: 10px;
-    width: 80px;
-    height: 80px;
-    display: inline;
-    vertical-align: middle;
+    width: 100px;
+    height: 70px;
+    padding: 0 15px;
 }
 
-.header {
+.logo img {
+    width: 70px;
+    height: 70px;
+}
+
+header {
+    display: flex;
+    align-items: center;    
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100px;
-    display: block;
+    height: 90px;
     background-color: black;
+    color: white;
     font-family: Roboto, Helvetica, snas-serif;
 }
 
 .gui { 
     position: absolute;
-    top: 100px;
+    top: 90px;
     left: 0px;
 }
 
@@ -146,6 +162,56 @@ svg {
 
 .json-document::-webkit-scrollbar-thumb:hover {
     background: #555; 
+}
+
+.json-document a.json-toggle {
+    position: inherit;
+}
+
+.json-document a.json-toggle:before {
+    position: inherit;
+}
+
+#info-view {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    padding-top: 100px;
+    left:0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4); 
+}
+
+.info-content {
+    color: black;
+    background-color: #fefefe;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 40%;
+    height: 50%;
+    font-size: 12px;
+    overflow: auto;
+}
+
+#info-close {
+    color: #aaaaaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: relative;
+    top: -15px;
+    right: -10px;
+}
+
+#info-close:hover,
+#info-close:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 /*text.topic_word {
