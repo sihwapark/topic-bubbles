@@ -55,9 +55,32 @@ var jsonCachePath = "";
 var progressBarWidth;
 var progress;
 var tooltip;
+var params = {};
 
+function getParams(url) {
+//based on the comments and ideas in https://gist.github.com/jlong/2428561
+    var parser = document.createElement('a');
+    parser.href = url;
+    var queries = parser.search.replace(/^\?/, '').split('&');
+    var params = {};
+    queries.forEach(function(q) {
+        var split = q.split('=');
+        params[split[0]] = split[1];
+    });
+
+    return params;
+}
 
 function load() {
+
+    params = getParams(window.location.href);
+    params['on'] = false;
+
+    if(typeof params['topicNum'] != 'undefined') {
+        params['on'] = true;
+        params['nodeID'] = parseInt(params['topicNum']) - 1;
+        params['expand'] = ((typeof params['expand'] != 'undefined') && (params['expand'] == 1));
+    }
 
     var infoView = document.getElementById('info-view');
     var infoButton = document.getElementById('info');
@@ -1029,7 +1052,7 @@ function setMappingScale() {
 }
 
 function draw() {
-    // based on the bubble chart example, https://naustud.io/tech-stack/
+    // based on the bubble chart example, https://naustud.io/tech-stack/ 
     var svg = d3.select('svg');
 
     svg.style('cursor', 'move');
@@ -1098,6 +1121,12 @@ function draw() {
                     return function(t) {
                         d.r = i(t);
                         simulation.force('collide', forceCollide);
+                    }
+                })
+                .on('end', function(d) {
+                    if(params['on'] && params['nodeID'] == d.idx) {
+                        var nodeTarget = this.parentNode;
+                        d3.select(nodeTarget).dispatch('click');
                     }
                 })
     
@@ -1666,9 +1695,17 @@ function draw() {
                                 .style('cursor', 'pointer');
 
                         expandButton.on('click', function(selectedNode) {
-                                    let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
+                                    let selectedTarget = d3.select(currentTarget);
                                     toggleFullView(selectedNode, selectedTarget);
                                 });
+
+                        if(params['on'] && params['nodeID'] == selectedNode.idx && params['expand']) {
+                            let selectedTarget = d3.select(currentTarget);
+                            var nodeData = selectedTarget.data()[0];
+                            toggleFullView(nodeData, selectedTarget);    
+                        }
+
+                        params['on'] = false;
                     })
                     .start();
 
@@ -1737,7 +1774,6 @@ function draw() {
         d3.transition().duration(500).ease(d3.easePolyOut)
             .tween('circleToRect', function() {
                 //d3.select(currentTarget).moveToFront();
-
                 let ir = d3.interpolateNumber(selectedNode.r, minWordCloudSize * 0.5);
                 let irBorder = d3.interpolateNumber(selectedNode.borderRatio, 0.1);
                 
@@ -1763,7 +1799,6 @@ function draw() {
                     
                     currentGroup.select('.wordcloud-overlay').classed('hidden', false);
                     currentGroup.select('.topic_name').classed('hidden', true);
-                    
             })
             .on('interrupt', function() {
                     //console.log('move interrupt', selectedNode);
@@ -1778,9 +1813,6 @@ function draw() {
             });
     });
     
-
-    
-
     addGui();
     drawLegend();
 }
