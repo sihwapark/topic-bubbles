@@ -1,12 +1,9 @@
 var data_folder = ['data/']
 var files = {
-        info: 'info.json',
         meta: 'meta.csv.zip',
         dt: 'dt.json.zip',
         tw: 'tw.json',
         topic_scaled: 'topic_scaled.csv',
-        auto_labels_supervised: 'output_supervised_.csv',
-        auto_labels_unsupervised: 'output_unsupervised_.csv',
         config: 'config.json'
 };
 
@@ -233,22 +230,6 @@ function load() {
             console.log('Unable to load a file ' + files.topic_scaled);
         }
     });
-
-    // loadData(data_folder[0] + files.auto_labels_unsupervised, function(e, i) {
-    //     if(typeof i === 'string') {
-    //         setAutoLabels(i, 'unsupervised');
-    //         loadData(data_folder[0] + files.auto_labels_supervised, function(e, i) {
-    //             if(typeof i === 'string') {
-    //                 setAutoLabels(i, 'supervised');
-    //             } else {
-    //                 console.log('Unable to load a file ' + files.auto_labels_supervised);
-    //             }
-    //         });
-
-    //     } else {
-    //         console.log('Unable to load a file ' + files.auto_labels_unsupervised);
-    //     }
-    // });
 };
 
 function loadData(e, t) {
@@ -368,23 +349,6 @@ function setTopicScaled(e) {
         return d.map(parseFloat)
     });
 };
-
-function setAutoLabels(e, type) {
-    
-    if (typeof e !== 'string') {
-        return
-    }
-    
-    if(typeof data.auto_labels == 'undefined') {
-        data.auto_labels = d3.csvParseRows(e, function(d) {
-            return { idx: d[0], labels: {[type]: d.slice(1) }};
-        });
-    } else {
-        d3.csvParseRows(e, function(d, i) {
-            data.auto_labels[i].labels[type] = d.slice(1);
-        });
-    }
-}
 
 //Text wrapping based on https://bl.ocks.org/mbostock/7555321
 function wrap(text, width) {
@@ -1355,27 +1319,6 @@ function draw() {
     leftX = minWordCloudSize * 0.5;
     topY = -minWordCloudSize * 0.5;
 
-    // let autoLabels =  node.append('g')
-    //                     .classed('auto-labels hidden', true)
-
-    // autoLabels.append('rect')
-    //         .attr('x', leftX)
-    //         .attr('y', topY + 2)
-    //         .attr('rx', (minWordCloudSize * 0.5 - 2) * 0.1)
-    //         .attr('ry', (minWordCloudSize * 0.5 - 2) * 0.1)
-    //         .attr('height', minWordCloudSize - 4)
-    //         .attr('width', minWordCloudSize * 0.5 - 2)
-    //         .style('fill', d3.rgb(255, 255, 255, 0.6));
-
-    // autoLabels.append('text')
-    //     .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-    //     .attr('y', topY + 25)
-    //     .attr('font-weight', 'bold')
-    //     .style('cursor', 'default')
-    //     .text(function(d) {
-    //         return 'Automatic Labels';
-    //     });
-
     let docLists = node.append('g')
                         .classed('doc-list hidden', true);
 
@@ -1695,72 +1638,13 @@ function draw() {
                                 .style('cursor', 'pointer');
 
                         expandButton.on('click', function(selectedNode) {
-                                    let selectedTarget = d3.select(currentTarget);
+                                    let selectedTarget = node.filter(function(d, i) { return (d.idx === selectedNode.index); });
                                     toggleFullView(selectedNode, selectedTarget);
                                 });
-
-                        if(params['on'] && params['nodeID'] == selectedNode.idx && params['expand']) {
-                            let selectedTarget = d3.select(currentTarget);
-                            var nodeData = selectedTarget.data()[0];
-                            toggleFullView(nodeData, selectedTarget);    
-                        }
-
-                        params['on'] = false;
                     })
                     .start();
 
                 var offsetY = 50;
-                // var autoLabelsLayer = autoLabels.filter(function(l,i) { return (l.idx == selectedNode.idx); });
-
-                // autoLabelsLayer.append('text')
-                //         .attr('x', leftX + 15)
-                //         .attr('y', topY + 25 + offsetY)
-                //         .style('font-size', '15px')
-                //         .style('text-anchor', 'start')
-                //         .style('cursor', 'default')
-                //         .text('Unsupervised:');
-                
-                // offsetY += 50;
-
-                // data.auto_labels[selectedNode.idx].labels['unsupervised'].forEach(function(d, i) {
-                //     autoLabelsLayer.append('text')
-                //         .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-                //         .attr('y', topY + 25 + offsetY)
-                //         .style('font-size', '20px')
-                //         .style('cursor', 'default')
-                //         .text(function() {
-                //             return d;
-                //         });
-
-                //     offsetY += 25;
-                // });
-
-                // offsetY = 50;
-
-                // autoLabelsLayer.append('text')
-                //         .attr('x', leftX + 15)
-                //         .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
-                //         .style('font-size', '15px')
-                //         .style('text-anchor', 'start')
-                //         .style('cursor', 'default')
-                //         .text('Supervised:');
-                
-                // offsetY += 50;
-
-                // data.auto_labels[selectedNode.idx].labels['supervised'].forEach(function(d, i) {
-                //     autoLabelsLayer.append('text')
-                //         .attr('x', leftX + (minWordCloudSize * 0.5 - 2) * 0.5)
-                //         .attr('y', topY + (minWordCloudSize - 4) * 0.5 + offsetY)
-                //         .style('font-size', '20px')
-                //         .style('cursor', 'default')
-                //         .text(function() {
-                //             return d;
-                //         });
-
-                //     offsetY += 25;
-                // });
-                // 
-                // 
                 var docListLayer = docLists.filter(function(l,i) { return (l.idx == selectedNode.idx); });
                 var sourceLayer = sources.filter(function(l,i) { return (l.idx == selectedNode.idx); });
                 topicDocs(selectedNode.idx, 20, docListLayer, sourceLayer);
@@ -1799,17 +1683,46 @@ function draw() {
                     
                     currentGroup.select('.wordcloud-overlay').classed('hidden', false);
                     currentGroup.select('.topic_name').classed('hidden', true);
+
+                    if(params['on'] && params['nodeID'] == selectedNode.idx && params['expand']) {
+
+                        var expandFunc = function() {    
+                                
+                                let selectedTarget = d3.select(currentTarget);
+                                var nodeData = selectedTarget.data()[0];
+                                toggleFullView(nodeData, selectedTarget);
+
+                                params['on'] = false;
+
+                                console.log("expandFunc fired");
+                            }
+
+                        setTimeout(expandFunc, 1000);
+                    }
             })
             .on('interrupt', function() {
-                    //console.log('move interrupt', selectedNode);
-                    // selectedNode.fx = null;
-                    // selectedNode.fy = null;
                     selectedNode.borderRatio = 0.1;
                     selectedNode.r = centerY * 0.5;
                     simulation.alphaTarget(0);
 
                     currentGroup.select('.wordcloud-overlay').classed('hidden', false);
-                    currentGroup.select('.topic_name').classed('hidden', true); 
+                    currentGroup.select('.topic_name').classed('hidden', true);
+
+                    if(params['on'] && params['nodeID'] == selectedNode.idx && params['expand']) {
+
+                        var expandFunc = function() {    
+                                
+                                let selectedTarget = d3.select(currentTarget);
+                                var nodeData = selectedTarget.data()[0];
+                                toggleFullView(nodeData, selectedTarget);
+
+                                params['on'] = false;
+
+                                console.log("expandFunc fired");
+                            }
+
+                        setTimeout(expandFunc, 1000);
+                    }
             });
     });
     
@@ -1962,7 +1875,6 @@ function setSacledZoom(svg) {
                     newX = transform.applyX(xScale(d.scaledInitX));
                     newY = transform.applyY(yScale(d.scaledInitY));
 
-                    //console.log(d.idx, d.x, d.y, scaledX, scaledY);
                     return 'translate(' + [newX, newY] + ')';
                 });
         });
@@ -2162,9 +2074,6 @@ function searchKeywords(keywords, splitted) {
 }
 
 function clearSearch() {
-    // console.log('clear search');
-    // console.log(data.searchedWords);
-
     searchKeywords('', false);
 }
 
