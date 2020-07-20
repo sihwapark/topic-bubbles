@@ -403,6 +403,7 @@ function showDocsList(topic_idx, docLayer) {
                 });
     
     var svg = d3.select('svg');
+    docLayer.select('.doc-loading').classed('hidden', true);
     var fo = docLayer.append('foreignObject')
             .attr('class', 'fo-list')
             .attr('x', leftX + 10)
@@ -761,6 +762,8 @@ function showSources(topic_idx, sourceLayer) {
     sourceLayer.node().appendChild(xAxis.node().cloneNode(true));
     xAxis.remove();
 
+    sourceLayer.select('.source-loading').classed('hidden', true);
+
     sourceLayer.select('g[id="xAxis"]')
             .selectAll('.tick')
             .on('mouseover', function(d, i) {
@@ -793,26 +796,11 @@ function showSources(topic_idx, sourceLayer) {
         .style('text-anchor', 'end')
         .text('Weight');
 
-    g.selectAll('source-lines')
+    var lines = g.selectAll('source-lines')
         .data(sources)
         .enter()
-        .append('line')
-            .attr('x1', function(d) { return x(d.name); })
-            .attr('x2', function(d) { return x(d.name); })
-            .attr('y1', function(d) { return y(d.weight); })
-            .attr('y2', y(0))
-            .attr('stroke', 'grey');
-
-    g.selectAll('source-circles')
-        .data(sources)
-        .enter()
-        .append('circle')
-            .attr('cx', function(d) { return x(d.name); }) 
-            .attr('cy', function(d) { return y(d.weight); })
-            .attr('r', 5)
-            .style('fill', d3.rgb(0, 200, 255, 0.7))
-            .attr('stroke', 'black')
-            .on('mouseover', function(d) {
+        .append('g')
+        .on('mouseover', function(d) {
                 tooltip.style('visibility', 'visible')
                         .style('left', (d3.event.pageX + 10) + 'px')
                         .style('top', (d3.event.pageY - 10) + 'px')
@@ -834,6 +822,20 @@ function showSources(topic_idx, sourceLayer) {
                     d3.select(this).style('stroke-width', 1);
                 }
             });
+
+    lines.append('line')
+            .attr('x1', function(d) { return x(d.name); })
+            .attr('x2', function(d) { return x(d.name); })
+            .attr('y1', function(d) { return y(d.weight); })
+            .attr('y2', y(0))
+            .attr('stroke', 'grey');
+    
+    lines.append('circle')
+            .attr('cx', function(d) { return x(d.name); }) 
+            .attr('cy', function(d) { return y(d.weight); })
+            .attr('r', 5)
+            .style('fill', d3.rgb(0, 200, 255, 0.7))
+            .attr('stroke', 'black');
 }
 
 function toggleDocsHighlight(topic_idx, docs, on) {
@@ -1343,7 +1345,16 @@ function draw() {
                 .style('font-weight', 'bold')
                 .style('font-size', '13px')
                 .style('cursor', 'default')
-                .html('Top 20 Documents');
+                .html('Top 20 Documents<br><h2>Loading the list of documents...</h2>');
+     
+
+    docLists.append('text')
+            .classed('doc-loading', true)
+            .attr('x', leftX + (minWordCloudSize * (expandedWidthScale - 1) - 2) * 0.5)
+            .attr('y', (minWordCloudSize * (expandedWidthScale - 1) - 2) * 0.5)
+            .style('text-anchor', 'middle')
+            .style('font-size', '20px')
+            .text('Loading the list of documents...');
 
     let docViewer = node.append('g')
                         .classed('doc-viewer hidden', true);
@@ -1382,7 +1393,8 @@ function draw() {
                 .style('word-break', 'break-all')
                 .style('word-wrap', 'break-word')
                 //.style('background-color', d3.rgb(200, 200, 200, 0.9))
-                .style('height', '100%');
+                .style('height', '100%')
+                .html('<h2>No public information is available for this document.</h2>');
 
     var viewerCloseButton = docViewer.append('g')
                                 .classed('viewer-close hidden', true);
@@ -1474,7 +1486,15 @@ function draw() {
             .attr('y', topY + 10)
             .attr('width', 250)
             .attr('height', 25);
-           
+    
+    sources.append('text')
+            .classed('source-loading', true)
+            .attr('x', leftX + (minWordCloudSize - 4) * 0.5)
+            .attr('y', topY + (minWordCloudSize * expandedHeightScale - minWordCloudSize  - 2) * 0.5)
+            .style('text-anchor', 'middle')
+            .style('font-size', '20px')
+            .text('Checking the sources of documents...');
+
     div = fo.append('xhtml:div')
                 .style('line-height', '25px')
                 .style('text-align', 'center')
@@ -1693,8 +1713,6 @@ function draw() {
                                 toggleFullView(nodeData, selectedTarget);
 
                                 params['on'] = false;
-
-                                console.log("expandFunc fired");
                             }
 
                         setTimeout(expandFunc, 1000);
@@ -1717,8 +1735,6 @@ function draw() {
                                 toggleFullView(nodeData, selectedTarget);
 
                                 params['on'] = false;
-
-                                console.log("expandFunc fired");
                             }
 
                         setTimeout(expandFunc, 1000);
@@ -1960,8 +1976,13 @@ function searchKeywords(keywords, splitted) {
                 return d3.interpolateYlGnBu(1 - (i / (keywords.length)));
             }));
 
-        searchLegend.scale(searchLegendColor)
-        svg.select('.legend-search').call(searchLegend);
+        searchLegend.scale(searchLegendColor);
+
+        var cells = svg.select('.legend-search').call(searchLegend).selectAll('.cell');
+
+        cells.attr('transform', function(d, i) { 
+            return 'translate(' + Math.floor(i / 5) * 120 + ',' + ((i % 5) * 17) + ')'; 
+        });
     }
 
     rect.transition().duration(1000).ease(d3.easeElasticOut)
