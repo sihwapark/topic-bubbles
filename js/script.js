@@ -1,6 +1,5 @@
 var data_folder = ['data/']
 var files = {
-        info: 'info.json',
         meta: 'meta.csv.zip',
         dt: 'dt.json.zip',
         tw: 'tw.json',
@@ -55,10 +54,52 @@ var metadata7DPath = '';
 var progressBarWidth;
 var progress;
 var tooltip;
-
+var params = {};
 var docListHeight;
 
+function getParams(url) {
+//based on the comments and ideas in https://gist.github.com/jlong/2428561
+    var parser = document.createElement('a');
+    parser.href = url;
+    var queries = parser.search.replace(/^\?/, '').split('&');
+    var params = {};
+    queries.forEach(function(q) {
+        var split = q.split('=');
+        params[split[0]] = split[1];
+    });
+
+    return params;
+}
+
 function load() {
+
+    params = getParams(window.location.href);
+    params['on'] = false;
+
+    if(typeof params['topicNum'] != 'undefined') {
+        params['on'] = true;
+        params['nodeID'] = parseInt(params['topicNum']) - 1;
+        params['expand'] = ((typeof params['expand'] != 'undefined') && (params['expand'] == 1));
+    }
+
+    var infoView = document.getElementById('info-view');
+    var infoButton = document.getElementById('info');
+    var infoClose = document.getElementById('info-close');
+
+    info.onclick = function() {
+        infoView.style.display = "block";
+    }
+
+    infoClose.onclick = function() {
+        infoView.style.display = "none";
+    }
+
+    window.onclick = function(e) {
+        if (e.target == infoView) {
+            infoView.style.display = "none";
+        }
+    }
+
     worker.fs = d3.map();
     worker.onmessage = function(e) {
         var i = worker.fs.get(e.data.what);
@@ -152,8 +193,12 @@ function load() {
                             if(typeof i === 'string') {
                                 var config = JSON.parse(i);
                                 jsonCachePath = config.json_cache_path;
-                                geodPath = config.geod_path;
-                                metadata7DPath = config.metadata_7D_path;
+                                
+                                if(typeof config.geod_path != 'undefined')
+                                    geodPath = config.geod_path;
+                                
+                                if(typeof config.metadata_7D_path != 'undefined')
+                                    metadata7DPath = config.metadata_7D_path;
 
                             } else {
                                 console.log('Unable to load a file ' + files.config);            
@@ -315,23 +360,6 @@ function setTopicScaled(e) {
     });
 };
 
-function setAutoLabels(e, type) {
-    
-    if (typeof e !== 'string') {
-        return
-    }
-    
-    if(typeof data.auto_labels == 'undefined') {
-        data.auto_labels = d3.csvParseRows(e, function(d) {
-            return { idx: d[0], labels: {[type]: d.slice(1) }};
-        });
-    } else {
-        d3.csvParseRows(e, function(d, i) {
-            data.auto_labels[i].labels[type] = d.slice(1);
-        });
-    }
-}
-
 //Text wrapping based on https://bl.ocks.org/mbostock/7555321
 function wrap(text, width) {
 
@@ -385,6 +413,7 @@ function showDocsList(topic_idx, docLayer) {
                 });
     
     var svg = d3.select('svg');
+    docLayer.select('.doc-loading').classed('hidden', true);
     var fo = docLayer.append('foreignObject')
             .attr('class', 'fo-list')
             .attr('x', leftX + 10)
@@ -432,6 +461,8 @@ function showDocsList(topic_idx, docLayer) {
 }
 
 function closeDocViewer(topic_idx) {
+    if(typeof data.topic_docs[topic_idx] == 'undefined') return;
+
     let node = d3.select('svg .node[id="node-' + topic_idx +'"]');
     var docViewer = node.select('.doc-viewer');
     var docList = node.select('.doc-list');
@@ -440,6 +471,9 @@ function closeDocViewer(topic_idx) {
     if(docViewer.classed('hidden') == false) {
         var viewerClose = docViewer.select('.viewer-close');
         viewerClose.classed('hidden', true);
+        var openRawJsonFileButton = docViewer.select('.open-rawjson');
+        openRawJsonFileButton.classed('hidden', true);
+
         docList.select('.fo-list')
                 .attr('height', docListHeight - 50);                
 
@@ -451,7 +485,8 @@ function closeDocViewer(topic_idx) {
                     let srcY =  minWordCloudSize * (expandedHeightScale - 0.5) - 2
                     let ir = d3.interpolateNumber(srcHeight, dstHeight);
                     
-                    viewerClose.attr('transform', 'translate(0,' + (dstHeight) + ')');  
+                    viewerClose.attr('transform', 'translate(0,' + (dstHeight) + ')');
+                    openRawJsonFileButton.attr('transform', 'translate(0,' + (dstHeight) + ')');
 
                     return function(t) {
                         let height = ir(t);
@@ -504,6 +539,10 @@ function openDocViewer(topic_idx, docIndex) {
 
     var linkbox = docList.select('.linkbox').node();
 
+    var openRawJsonFileButton = docViewer.select('.open-rawjson');
+    var jsonPath = jsonCachePath + data.topic_docs[topic_idx].citations[docIndex].doi;
+    openRawJsonFileButton.select('a').attr('xlink:href', jsonPath);
+
     if(docViewer.classed('hidden')) {
         docViewer.classed('hidden', false);
         fo.classed('hidden', false);
@@ -523,8 +562,9 @@ function openDocViewer(topic_idx, docIndex) {
                     let srcY =  minWordCloudSize * (expandedHeightScale - 0.5) - 2
                     let ir = d3.interpolateNumber(srcHeight, dstHeight);
                     
-                    viewerClose.attr('transform', 'translate(0,' + (-dstHeight) + ')');  
-
+                    viewerClose.attr('transform', 'translate(0,' + (-dstHeight) + ')');
+                    openRawJsonFileButton.attr('transform', 'translate(0,' + (-dstHeight) + ')');
+                    
                     return function(t) {
                         let height = ir(t);
                         docViewer.select('rect').attr('y', srcY - height)
@@ -536,35 +576,45 @@ function openDocViewer(topic_idx, docIndex) {
                 })
                 .on('end', function() {
                     viewerClose.classed('hidden', false);
-                    
+                    openRawJsonFileButton.classed('hidden', false);
+
                     linkbox.scrollTop = li.node().offsetTop;
                     
-                    if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+                    if(typeof data.topic_docs[topic_idx].docs[docIndex].jsonRendered != 'undefined') {
+                        div._groups[0][0].innerHTML = data.topic_docs[topic_idx].docs[docIndex].jsonRendered;
+                    } else if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') {
                         $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+                        data.topic_docs[topic_idx].docs[docIndex].jsonRendered = div._groups[0][0].innerHTML;
+                    }
 
                 })
                 .on('interrupt', function() {
                     viewerClose.classed('hidden', false);
-                    
+                    openRawJsonFileButton.classed('hidden', false);
                     linkbox.scrollTop = li.node().offsetTop;
 
-                    if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+                    if(typeof data.topic_docs[topic_idx].docs[docIndex].jsonRendered != 'undefined') {
+                        div._groups[0][0].innerHTML = data.topic_docs[topic_idx].docs[docIndex].jsonRendered;
+                    } else if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') {
                         $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+                        data.topic_docs[topic_idx].docs[docIndex].jsonRendered = div._groups[0][0].innerHTML;
+                    }
                 });
     } else {
-        if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') 
+        if(typeof data.topic_docs[topic_idx].docs[docIndex].jsonRendered != 'undefined') {
+            div._groups[0][0].innerHTML = data.topic_docs[topic_idx].docs[docIndex].jsonRendered;
+        } else if(typeof data.topic_docs[topic_idx].docs[docIndex].json != 'undefined') {
             $(div._groups[0][0]).jsonViewer(data.topic_docs[topic_idx].docs[docIndex].json);
+            data.topic_docs[topic_idx].docs[docIndex].jsonRendered = div._groups[0][0].innerHTML;
+        }
     }
-
-    if(typeof data.topic_docs[topic_idx].lastClickedDoc == 'undefined') 
-        data.topic_docs[topic_idx].lastClickedDoc = -1;
     
     let lastClickedDocIndex = data.topic_docs[topic_idx].lastClickedDoc;
 
     data.topic_docs[topic_idx].lastClickedDoc = docIndex;
     var wordCloud = data.wordCloud[topic_idx].layer;
 
-    if(lastClickedDocIndex != -1) {
+    if(typeof lastClickedDocIndex != 'undefined' && lastClickedDocIndex != -1) {
         var lastLi = docList.select('li[id="' + topic_idx + '-' + lastClickedDocIndex + '"]');
         lastLi.style('font-weight', 'normal');
         let lastMatched = data.topic_docs[topic_idx].docs[lastClickedDocIndex].matchedWords;
@@ -586,7 +636,6 @@ function openDocViewer(topic_idx, docIndex) {
                         .style('background-color', d3.rgb(255, 100, 100, 0.7));
         });
     }
-
 
     li.style('font-weight', 'bold');
 }
@@ -719,6 +768,8 @@ function showSources(topic_idx, sourceLayer) {
     sourceLayer.node().appendChild(xAxis.node().cloneNode(true));
     xAxis.remove();
 
+    sourceLayer.select('.source-loading').classed('hidden', true);
+
     sourceLayer.select('g[id="xAxis"]')
             .selectAll('.tick')
             .on('mouseover', function(d, i) {
@@ -751,26 +802,11 @@ function showSources(topic_idx, sourceLayer) {
         .style('text-anchor', 'end')
         .text('Weight');
 
-    g.selectAll('source-lines')
+    var lines = g.selectAll('source-lines')
         .data(sources)
         .enter()
-        .append('line')
-            .attr('x1', function(d) { return x(d.name); })
-            .attr('x2', function(d) { return x(d.name); })
-            .attr('y1', function(d) { return y(d.weight); })
-            .attr('y2', y(0))
-            .attr('stroke', 'grey');
-
-    g.selectAll('source-circles')
-        .data(sources)
-        .enter()
-        .append('circle')
-            .attr('cx', function(d) { return x(d.name); }) 
-            .attr('cy', function(d) { return y(d.weight); })
-            .attr('r', 5)
-            .style('fill', d3.rgb(0, 200, 255, 0.7))
-            .attr('stroke', 'black')
-            .on('mouseover', function(d) {
+        .append('g')
+        .on('mouseover', function(d) {
                 tooltip.style('visibility', 'visible')
                         .style('left', (d3.event.pageX + 10) + 'px')
                         .style('top', (d3.event.pageY - 10) + 'px')
@@ -792,6 +828,20 @@ function showSources(topic_idx, sourceLayer) {
                     d3.select(this).style('stroke-width', 1);
                 }
             });
+
+    lines.append('line')
+            .attr('x1', function(d) { return x(d.name); })
+            .attr('x2', function(d) { return x(d.name); })
+            .attr('y1', function(d) { return y(d.weight); })
+            .attr('y2', y(0))
+            .attr('stroke', 'grey');
+    
+    lines.append('circle')
+            .attr('cx', function(d) { return x(d.name); }) 
+            .attr('cy', function(d) { return y(d.weight); })
+            .attr('r', 5)
+            .style('fill', d3.rgb(0, 200, 255, 0.7))
+            .attr('stroke', 'black');
 }
 
 function toggleDocsHighlight(topic_idx, docs, on) {
@@ -974,7 +1024,7 @@ function setMappingScale() {
 }
 
 function draw() {
-    // based on the bubble chart example, https://naustud.io/tech-stack/
+    // based on the bubble chart example, https://naustud.io/tech-stack/ 
     var svg = d3.select('svg');
 
     svg.style('cursor', 'move');
@@ -1043,6 +1093,12 @@ function draw() {
                     return function(t) {
                         d.r = i(t);
                         simulation.force('collide', forceCollide);
+                    }
+                })
+                .on('end', function(d) {
+                    if(params['on'] && params['nodeID'] == d.idx) {
+                        var nodeTarget = this.parentNode;
+                        d3.select(nodeTarget).dispatch('click');
                     }
                 })
     
@@ -1199,7 +1255,7 @@ function draw() {
                 .style('font-weight', 'bold')
                 .style('font-size', '13px')
                 .html(function(d) { return d.name; });
-
+    
     var expandButton = wordCloudLayer.append('g').classed('expand-button', true);
     buttonCenterY = topY + minWordCloudSize - buttonRadius * 2;
     expandButton.append('circle')
@@ -1231,9 +1287,9 @@ function draw() {
             });
 
     leftX = minWordCloudSize * 0.5;
-    topY= -minWordCloudSize * 0.5;
+    topY = -minWordCloudSize * 0.5;
 
-    let docList = node.append('g')
+    let docLists = node.append('g')
                         .classed('doc-list hidden', true);
     docListHeight = minWordCloudSize * expandedHeightScale;
     if(geodPath != '') {
@@ -1242,10 +1298,10 @@ function draw() {
     } else {
         docListHeight -= 4;
     }
-    
+
     let docListWidth = minWordCloudSize * (expandedWidthScale - 1) - 2;
 
-    docList.append('rect')
+    docLists.append('rect')
             .attr('x', leftX)
             .attr('y', topY + 2)
             .attr('rx', roundOff)
@@ -1254,7 +1310,7 @@ function draw() {
             .attr('width', docListWidth)
             .style('fill', d3.rgb(255, 255, 255, 0.9));
 
-    var fo = docList.append('foreignObject')
+    var fo = docLists.append('foreignObject')
             .attr('x', leftX + docListWidth * 0.5 - 125)
             .attr('y', topY + 10)
             .attr('width', 250)
@@ -1266,7 +1322,7 @@ function draw() {
                 .style('font-weight', 'bold')
                 .style('font-size', '13px')
                 .style('cursor', 'default')
-                .html('Top 20 Documents');
+                .html('Top 20 Documents<br><h2>Loading the list of documents...</h2>');
     
     if(geodPath != '') {
         let geod = node.append('g')
@@ -1321,6 +1377,14 @@ function draw() {
                 .text(function(d) { return 'Open the GeoD viewer for Topic ' + (d.idx + 1); });
     }
 
+    docLists.append('text')
+            .classed('doc-loading', true)
+            .attr('x', leftX + (minWordCloudSize * (expandedWidthScale - 1) - 2) * 0.5)
+            .attr('y', (minWordCloudSize * (expandedWidthScale - 1) - 2) * 0.5)
+            .style('text-anchor', 'middle')
+            .style('font-size', '20px')
+            .text('Loading the list of documents...');
+
     let docViewer = node.append('g')
                         .classed('doc-viewer hidden', true);
     let docViewerY = topY + minWordCloudSize * expandedHeightScale - 2;
@@ -1356,7 +1420,8 @@ function draw() {
                 .style('overflow-y', 'auto')
                 .style('word-break', 'break-all')
                 .style('word-wrap', 'break-word')
-                .style('height', '100%');
+                .style('height', '100%')
+                .html('<h2>No public information is available for this document.</h2>');
 
     var viewerCloseButton = docViewer.append('g')
                                 .classed('viewer-close hidden', true);
@@ -1370,7 +1435,6 @@ function draw() {
             .attr('r', buttonRadius)
             .style('fill', d3.rgb(100, 100, 100, 0.7))
             .style('cursor', 'pointer');
-
     var viewerCloseButtonTriangle = viewerCloseButton.append('g');
     viewerCloseButtonTriangle.append('path')
             .attr('d', symbolGenerator)
@@ -1382,8 +1446,37 @@ function draw() {
                 closeDocViewer(selectedNode.idx);
             });
 
+    let buttonWidth = 160;
+    let buttonHeight = buttonRadius * 2;
+    let buttonX = buttonCenterX + buttonRadius + 8;
+    let buttonY = topY + minWordCloudSize * expandedHeightScale - 2 + buttonRadius;
+
+    var openRawJsonFileButton = docViewer.append('g')
+                                .classed('open-rawjson hidden', true);
+    openRawJsonFileButton.append('a').attr('target', '_blank')
+                        .append('rect')
+                        .attr('x', buttonX)
+                        .attr('y', buttonY)
+                        .attr('rx', buttonHeight * 0.5)
+                        .attr('ry', buttonHeight * 0.5)
+                        .attr('width', buttonWidth)
+                        .attr('height', buttonHeight)
+                        .style('fill', d3.rgb(255, 255, 255, 1))
+                        .style('stroke', d3.rgb(100, 100, 100, 0.7))
+                        .style('cursor', 'pointer');
+    
+    openRawJsonFileButton.append('text')
+                        .attr('x', buttonX + buttonWidth * 0.5)
+                        .attr('y', buttonY + buttonHeight * 0.5)
+                        .attr('text-anchor', 'middle')
+                        .attr("dy", ".35em")
+                        .style('fill', d3.rgb(100, 100, 100, 0.7))
+                        .style('font-size', '12px')
+                        .style('pointer-events', 'none')
+                        .text('View JSON in New Window');
+
     leftX = -minWordCloudSize * 0.5;
-    topY = minWordCloudSize * 0.5;
+    topY= minWordCloudSize * 0.5;
     
     let sources = node.append('g')
                         .classed('source-view hidden', true);
@@ -1402,7 +1495,15 @@ function draw() {
             .attr('y', topY + 10)
             .attr('width', 250)
             .attr('height', 25);
-           
+    
+    sources.append('text')
+            .classed('source-loading', true)
+            .attr('x', leftX + (minWordCloudSize - 4) * 0.5)
+            .attr('y', topY + (minWordCloudSize * expandedHeightScale - minWordCloudSize  - 2) * 0.5)
+            .style('text-anchor', 'middle')
+            .style('font-size', '20px')
+            .text('Checking the sources of documents...');
+
     div = fo.append('xhtml:div')
                 .style('line-height', '25px')
                 .style('text-align', 'center')
@@ -1567,7 +1668,7 @@ function draw() {
                     })
                     .start();
 
-                var docListLayer = docList.filter(function(l,i) { return (l.idx == selectedNode.idx); });
+                var docListLayer = docLists.filter(function(l,i) { return (l.idx == selectedNode.idx); });
                 var sourceLayer = sources.filter(function(l,i) { return (l.idx == selectedNode.idx); });
                 topicDocs(selectedNode.idx, 20, docListLayer, sourceLayer);
         }
@@ -1580,7 +1681,6 @@ function draw() {
         d3.transition().duration(500).ease(d3.easePolyOut)
             .tween('circleToRect', function() {
                 //d3.select(currentTarget).moveToFront();
-
                 let ir = d3.interpolateNumber(selectedNode.r, minWordCloudSize * 0.5);
                 let irBorder = d3.interpolateNumber(selectedNode.borderRatio, 0.1);
                 
@@ -1606,7 +1706,20 @@ function draw() {
                     
                     currentGroup.select('.wordcloud-overlay').classed('hidden', false);
                     currentGroup.select('.topic_name').classed('hidden', true);
-                    
+
+                    if(params['on'] && params['nodeID'] == selectedNode.idx && params['expand']) {
+
+                        var expandFunc = function() {    
+                                
+                                let selectedTarget = d3.select(currentTarget);
+                                var nodeData = selectedTarget.data()[0];
+                                toggleFullView(nodeData, selectedTarget);
+
+                                params['on'] = false;
+                            }
+
+                        setTimeout(expandFunc, 1000);
+                    }
             })
             .on('interrupt', function() {
                     selectedNode.borderRatio = 0.1;
@@ -1614,13 +1727,24 @@ function draw() {
                     simulation.alphaTarget(0);
 
                     currentGroup.select('.wordcloud-overlay').classed('hidden', false);
-                    currentGroup.select('.topic_name').classed('hidden', true); 
+                    currentGroup.select('.topic_name').classed('hidden', true);
+
+                    if(params['on'] && params['nodeID'] == selectedNode.idx && params['expand']) {
+
+                        var expandFunc = function() {    
+                                
+                                let selectedTarget = d3.select(currentTarget);
+                                var nodeData = selectedTarget.data()[0];
+                                toggleFullView(nodeData, selectedTarget);
+
+                                params['on'] = false;
+                            }
+
+                        setTimeout(expandFunc, 1000);
+                    }
             });
     });
     
-
-    
-
     addGui();
     drawLegend();
 }
@@ -1857,8 +1981,13 @@ function searchKeywords(keywords, splitted) {
                 return d3.interpolateYlGnBu(1 - (i / (keywords.length)));
             }));
 
-        searchLegend.scale(searchLegendColor)
-        svg.select('.legend-search').call(searchLegend);
+        searchLegend.scale(searchLegendColor);
+
+        var cells = svg.select('.legend-search').call(searchLegend).selectAll('.cell');
+
+        cells.attr('transform', function(d, i) { 
+            return 'translate(' + Math.floor(i / 5) * 120 + ',' + ((i % 5) * 17) + ')'; 
+        });
     }
 
     rect.transition().duration(1000).ease(d3.easeElasticOut)
@@ -1908,8 +2037,8 @@ function searchKeywords(keywords, splitted) {
                 result[d.idx].forEach(function(v) {
                     var text = texts.filter(function(t, ti) { return ti == v.index; });
                     text.classed('clicked', true);
-                    
-                    if(typeof data.wordCloud[d.idx] != 'undefined') {
+
+                    if(typeof data.wordCloud[d.idx] != 'undefined' && typeof data.wordCloud[d.idx].words[v.index] != 'undefined') {
                         data.wordCloud[d.idx].words[v.index].clicked = true;
                     }
                 });
