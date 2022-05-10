@@ -35,9 +35,9 @@ Also, a folder path in which the transformed JSON files exist should be specifie
 { "json_cache_path": "[specify a path to a folder for the JSON files here]" }
 ```
 
-### Running a HTTP Server
+### Running an HTTP Server
 
-To run the code with your own data, you need to run a HTTP server. One of choices for running the server is to use [http-server](https://www.npmjs.com/package/http-server). After installing `http-server`, please follow instructions blew in the command line.
+To run the code with your own data, you need to run an HTTP server. One of choices for running the server is to use [http-server](https://www.npmjs.com/package/http-server). After installing `http-server`, please follow instructions blew in the command line.
 
 ```shell
 cd [path-to-the-TopicBubbles-folder]
